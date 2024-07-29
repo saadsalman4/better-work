@@ -12,7 +12,7 @@ function model(sequelize) {
             primaryKey: true,
             allowNull: false,
         },
-        jwt_key: {
+        api_token: {
             type: DataTypes.STRING,
             allowNull: false,
         },

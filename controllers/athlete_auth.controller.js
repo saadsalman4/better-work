@@ -211,7 +211,7 @@ async function login (req, res){
           });
 
         const newKey = User_keys.create({
-            jwt_key: token,
+            api_token: token,
             user_email: user.email,
             tokenType: 'athlete_access'
         })
@@ -309,9 +309,6 @@ async function resendOTP(req, res){
     }
 }
 
-module.exports = {signup, verifyOTP, login, resendOTP}
-
-
 function generateOTP(){
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -323,3 +320,5 @@ function sendOTP(mobile, otp){
 
     console.log('OTP sent at ' + mobile + ': ' + otp)
 }
+
+module.exports = {signup, verifyOTP, login, resendOTP, generateOTP, sendOTP}
