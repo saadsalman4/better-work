@@ -4,11 +4,15 @@ const sequelize = new Sequelize('betterWork', 'root', '', {
   dialect: 'mysql',
 });
 
-// const Owner = require('./models/owner/owner.model')(sequelize);
+const User = require('./models/user.model')(sequelize);
+const User_keys = require('./models/user_keys.model')(sequelize);
+const User_OTPS = require('./models/user_otps.model')(sequelize)
 
 const db = {
     sequelize,
-    // Owner,
+    User,
+    User_keys,
+    User_OTPS
 
   };
   
