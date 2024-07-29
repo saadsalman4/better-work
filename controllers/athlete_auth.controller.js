@@ -240,7 +240,76 @@ async function login (req, res){
 
 }
 
-module.exports = {signup, verifyOTP, login}
+async function resendOTP(req, res){
+    const {mobile_number} = req.body
+    try{
+        const user = await User.findOne({where:{mobile_number}})
+    if(!user){
+        return res.status(400).json({ 
+            code: 404,
+            message: "Error resending OTP",
+            data : "User not found",
+        });
+    }
+    if(user.otp_verified==true){
+        return res.status(400).json({ 
+            code: 400,
+            message: "Error resending OTP",
+            data : "OTP already verified",
+        });
+    }
+    const latestOTP = await User_OTPS.findOne({
+        where: { user_mobile_number: mobile_number, otp_type: 'verify', },
+        order: [['createdAt', 'DESC']]
+    });
+
+    const now = new Date();
+    const otpExpiry = new Date(latestOTP.otp_expiry);
+
+    const timeDifference = otpExpiry - now;
+    const limit = 570000;
+    if (timeDifference > limit) {
+        const secondsRemaining = Math.ceil((timeDifference - limit) / 1000);
+
+        return res.status(400).json({
+            code: 400,
+            message: "Error resending OTP",
+            data : `Please try again in ${secondsRemaining} seconds!`,
+        });
+    }
+
+    const otp = generateOTP();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+
+    const newOTP = await User_OTPS.create({
+        otp: otp,
+        otp_expiry: expiresAt,
+        user_mobile_number: user.mobile_number,
+        otp_type: 'verify',
+    })
+
+    await sendOTP(user.mobile_number, otp)
+
+    return res.status(200).json({
+        code: 200,
+        message: "OTP was resent successfully"
+    });
+
+
+    }
+    catch(e){
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: "Server error",
+            data: e.message
+        });
+    }
+}
+
+module.exports = {signup, verifyOTP, login, resendOTP}
 
 
 function generateOTP(){
