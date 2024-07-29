@@ -5,13 +5,13 @@ module.exports = model;
 
 function model(sequelize) {
     const User = sequelize.define('User', {
-        uuid: {
+        slug: {
             type: DataTypes.UUID,
             defaultValue: uuidv4,
             unique: true,
             primaryKey: true,
             allowNull: false,
-          },
+        },
         full_name: {
             type: DataTypes.STRING,
             allowNull: false,
@@ -36,13 +36,13 @@ function model(sequelize) {
             type: DataTypes.STRING,
             allowNull: false,
         },
-        otp_verified : {
+        otp_verified: {
             type: DataTypes.BOOLEAN,
             defaultValue: false
         },
-        user_role :{
+        user_role: {
             type: DataTypes.ENUM('athlete', 'coach'),
-            allowNull:false
+            allowNull: false
         },
     }, {
         defaultScope: {
@@ -53,6 +53,11 @@ function model(sequelize) {
             // Include hash with this scope
             withHash: { attributes: {}, },
         },
+        hooks: {
+            beforeCreate: (user, options) => {
+                user.slug = uuidv4(); // Assign a UUID before creation
+            },
+        }
     });
 
     User.associate = function(models) {
@@ -61,17 +66,12 @@ function model(sequelize) {
             sourceKey: 'email',
             as: 'keys'
         });
-    };
-
-    User.associate = function(models) {
         User.hasMany(models.User_OTPS, {
-            foreignKey: 'user_email',
-            sourceKey: 'email',
+            foreignKey: 'user_mobile_number',
+            sourceKey: 'mobile_number',
             as: 'otps'
         });
     };
 
-
     return User;
 }
-
