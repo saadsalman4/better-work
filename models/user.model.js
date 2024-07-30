@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
+const {UserRole} = require('../utils/constants')
 
 module.exports = model;
 
@@ -41,7 +42,7 @@ function model(sequelize) {
             defaultValue: false
         },
         user_role: {
-            type: DataTypes.ENUM('athlete', 'coach'),
+            type: DataTypes.ENUM(...Object.values(UserRole)),
             allowNull: false
         },
     }, {

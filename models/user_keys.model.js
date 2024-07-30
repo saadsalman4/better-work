@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
+const {TokenType} = require('../utils/constants')
 
 module.exports = model;
 
@@ -17,7 +18,7 @@ function model(sequelize) {
             allowNull: false,
         },
         tokenType: {
-            type: DataTypes.ENUM('athlete_access', 'coach_access', 'reset'),
+            type: DataTypes.ENUM(...Object.values(TokenType)),
             allowNull: false,
         },
     }, {

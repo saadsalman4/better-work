@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const { User } = require('../connect');
+const {OTPType} = require('../utils/constants')
 
 module.exports = model;
 
@@ -22,8 +23,12 @@ function model(sequelize) {
             allowNull: false
         },
         otp_type: {
-            type: DataTypes.ENUM('verify', 'reset'),
+            type: DataTypes.ENUM(...Object.values(OTPType)),
             allowNull: false,
+        },
+        used: {
+            type:DataTypes.BOOLEAN,
+            defaultValue: false
         }
     }, {
         hooks: {

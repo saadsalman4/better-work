@@ -3,6 +3,7 @@ const { sequelize ,User, User_keys, User_OTPS } = require('../connect');
 const { Sequelize } = require('sequelize');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
+const { UserRole, OTPType, TokenType } = require('../utils/constants');
 
 
 const registrationSchema = Joi.object({
@@ -51,14 +52,14 @@ async function signup (req, res){
         const newUser = await User.create({
             ...req.body,
             password: hashedPassword,
-            user_role: 'athlete'
+            user_role: UserRole.ATHLETE
         }, { transaction });
 
         const newOTP = await User_OTPS.create({
             otp:otp,
             otp_expiry: expiresAt,
             user_mobile_number: newUser.mobile_number,
-            otp_type: 'verify',
+            otp_type: OTPType.VERIFY,
         }, { transaction });
 
         await sendOTP(newUser.mobile_number, otp)
@@ -84,7 +85,9 @@ async function signup (req, res){
 }
 
 async function verifyOTP (req, res){
+    let transaction
     try{
+        transaction = await sequelize.transaction();
         const {mobile_number, otp} = req.body
         const user = await User.findOne({where:{mobile_number}})
         if(!user){
@@ -105,7 +108,7 @@ async function verifyOTP (req, res){
         const now = new Date();
     
         const latestOTP = await User_OTPS.findOne({
-            where: { user_mobile_number: mobile_number, otp_type: 'verify', },
+            where: { user_mobile_number: mobile_number, otp_type: OTPType.VERIFY, used: false },
             order: [['createdAt', 'DESC']]
         });
 
@@ -128,7 +131,11 @@ async function verifyOTP (req, res){
         }
 
         user.otp_verified = true;
-        await user.save();
+        latestOTP.used = true;
+        await user.save({transaction});
+        await latestOTP.save({transaction});
+
+        await transaction.commit();
 
         return res.status(200).json({
             code: 200,
@@ -142,6 +149,7 @@ async function verifyOTP (req, res){
         })
     }
     catch(e){
+        await transaction.rollback();
         console.error(e);
         return res.status(500).json({
             code: 500,
@@ -191,7 +199,7 @@ async function login (req, res){
                 otp: otp,
                 otp_expiry: expiresAt,
                 user_mobile_number: user.mobile_number,
-                otp_type: 'verify',
+                otp_type: OTPType.VERIFY,
                 
             })
     
@@ -206,14 +214,14 @@ async function login (req, res){
         await User_keys.destroy({
             where: {
               user_email: user.email,
-              tokenType: 'athlete_access'
+              tokenType: TokenType.ATHLETE_ACCESS
             },
           });
 
         const newKey = User_keys.create({
             api_token: token,
             user_email: user.email,
-            tokenType: 'athlete_access'
+            tokenType: TokenType.ATHLETE_ACCESS
         })
 
         return res.status(200).json({
@@ -259,7 +267,7 @@ async function resendOTP(req, res){
         });
     }
     const latestOTP = await User_OTPS.findOne({
-        where: { user_mobile_number: mobile_number, otp_type: 'verify', },
+        where: { user_mobile_number: mobile_number, otp_type: OTPType.VERIFY, used: false },
         order: [['createdAt', 'DESC']]
     });
 
@@ -287,7 +295,7 @@ async function resendOTP(req, res){
         otp: otp,
         otp_expiry: expiresAt,
         user_mobile_number: user.mobile_number,
-        otp_type: 'verify',
+        otp_type: OTPType.VERIFY,
     })
 
     await sendOTP(user.mobile_number, otp)

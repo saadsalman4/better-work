@@ -10,11 +10,13 @@ dotenv.config();
 app.use(upload.any())
 
 const athleteAuthRoutes = require('./routes/athlete_auth.routes')
+const athleteAccountRoutes = require('./routes/athlete_account.routes')
 
 app.use(express.json())
 
 //routes
 app.use('/api/athlete', athleteAuthRoutes)
+app.use('/api/athlete/account', athleteAccountRoutes)
 
 
 
