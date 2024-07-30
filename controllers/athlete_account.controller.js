@@ -1,15 +1,11 @@
 const bcrypt = require('bcryptjs');
 const { sequelize, User, User_OTPS, User_keys } = require('../connect');
 const jwt = require('jsonwebtoken');
-const Joi = require('joi');
 const {generateOTP, sendOTP } = require("./athlete_auth.controller")
 const { UserRole, OTPType, TokenType } = require('../utils/constants');
+const {passwordSchema} = require('../utils/inputSchemas')
 
 
-const passwordSchema = Joi.object({
-    newPassword: Joi.string().min(6).required(),
-    newPasswordConfirmed: Joi.string().min(6).required(),
-});
 
 async function forgotPassword (req, res){
     const {mobile_number} = req.body
@@ -26,31 +22,24 @@ async function forgotPassword (req, res){
         const expiresAt = new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
+        await User_OTPS.update(
+            { is_active: false },
+            {
+              where: {
+                user_slug: user.slug,
+                otp_type: OTPType.RESET,
+                is_active: true
+              }
+            }
+          );
+
         const newOTP = await User_OTPS.create({
             otp: otp,
             otp_expiry: expiresAt,
-            user_mobile_number: user.mobile_number,
+            user_slug: user.slug,
             otp_type: OTPType.RESET,
         })
         await sendOTP(user.mobile_number, otp)
-
-        // const payload = {
-        //     mobile_number: user.mobile_number
-        // };
-        // const token = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: '10m'})
-
-        // await User_keys.destroy({
-        //     where: {
-        //       user_email: user.email,
-        //       tokenType: TokenType.ATHLETE_RESET
-        //     },
-        //   });
-
-        // const newKey = User_keys.create({
-        //     api_token: token,
-        //     user_email: user.email,
-        //     tokenType: TokenType.ATHLETE_RESET
-        // });
 
         return res.status(200).json({
             code: 200,
@@ -82,15 +71,14 @@ async function verifyOTP (req, res){
         const now = new Date();
 
         const latestOTP = await User_OTPS.findOne({
-            where: { user_mobile_number: user.mobile_number, otp_type: OTPType.RESET, used: false},
+            where: { user_slug: user.slug, otp_type: OTPType.RESET, is_active: true},
             order: [['createdAt', 'DESC']]
         });
 
         if (!latestOTP) {
             return res.status(404).json({
                 code: 404,
-                message: "OTP not found",
-                data: "Please request OTP first"
+                message: "OTP not found, please request OTP first",
             });
         }
 
@@ -100,33 +88,47 @@ async function verifyOTP (req, res){
         if (savedOTP !== enteredOTP || now > new Date(latestOTP.otp_expiry)) {
             return res.status(401).json({
                 code: 401,
-                message: "Incorrect OTP entered",
-                data: "Please enter correct OTP"
+                message: "Incorrect OTP entered or OTP expired",            
             });
         }
         const payload = {
-            mobile_number: user.mobile_number
+            slug: user.slug
         };
         const token = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: '10m' });
 
         transaction = await sequelize.transaction();
     
-        await User_keys.destroy({
+        const currentKey = await User_keys.findOne({
             where: {
-              user_email: user.email,
-              tokenType: TokenType.ATHLETE_RESET
-            },transaction
-          });
+              user_slug: user.slug,
+              tokenType: TokenType.ATHLETE_RESET,
+              is_active: true},
+              order: [['createdAt', 'DESC']],
+        }, {transaction});
+
+        if(currentKey){
+            currentKey.is_active=false;
+            await currentKey.save({transaction}); 
+        }
     
         const newKey = User_keys.create({
             api_token: token,
-            user_email: user.email,
+            user_slug: user.slug,
             tokenType: TokenType.ATHLETE_RESET
         }, {transaction})
 
-        latestOTP.used=true;
+        await User_OTPS.update(
+            { is_active: false }, // Set the fields to update
+            {
+              where: {
+                user_slug: user.slug,
+                otp_type: OTPType.RESET,
+                is_active: true
+              },
+              transaction
+            }
+          );
 
-        await latestOTP.save({ transaction });
         await transaction.commit();
 
         return res.status(200).json({
@@ -165,7 +167,12 @@ async function resetPassword(req, res){
                 message: "Invalid authorization",
             });
         }
-        const checkKey = await User_keys.findOne({ where: { api_token: token, tokenType: TokenType.ATHLETE_RESET } });
+        const checkKey = await User_keys.findOne({ where: {
+            api_token: token,
+            tokenType: TokenType.ATHLETE_RESET,
+            is_active: true 
+            }, order: [['createdAt', 'DESC']], });
+
         if (!checkKey) {
             return res.status(401).json({
                 code: 401,
@@ -187,7 +194,7 @@ async function resetPassword(req, res){
                 data: error.details[0].message
             });
         }
-        const user = await User.scope('withHash').findOne({ where: { mobile_number: userPayload.mobile_number } });
+        const user = await User.scope('withHash').findOne({ where: { slug: userPayload.slug } });
         if (!user) {
             return res.status(404).json({
                 code: 404,
@@ -206,7 +213,18 @@ async function resetPassword(req, res){
         user.password = hashedPassword;
 
         await user.save({ transaction });
-        await User_keys.destroy({ where: { user_email: user.email }, transaction });
+        
+        await User_keys.update(
+            { is_active: false },
+            {
+              where: {
+                user_slug: user.slug,
+                is_active: true 
+              },
+              transaction
+            }
+          );
+          
 
         await transaction.commit();
 
@@ -234,20 +252,18 @@ async function resendOTP(req, res){
     if(!user){
         return res.status(400).json({ 
             code: 400,
-            message: "Error resending OTP",
-            data : "User not found",
+            message: "User not found",
         });
     }
     const latestOTP = await User_OTPS.findOne({
-        where: { user_mobile_number: mobile_number, otp_type: OTPType.RESET, used: false },
+        where: { user_slug: user.slug, otp_type: OTPType.RESET, is_active: true },
         order: [['createdAt', 'DESC']]
     });
 
     if(!latestOTP){
         return res.status(400).json({ 
             code: 404,
-            message: "Error resending OTP",
-            data : "OTP needs to be normally sent first",
+            message: "Error. Try forget password again!",
         });
     }
 
@@ -270,11 +286,21 @@ async function resendOTP(req, res){
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
+    await User_OTPS.update(
+        { is_active: false },
+        {
+          where: {
+            user_slug: user.slug,
+            otp_type: OTPType.RESET,
+            is_active: true
+          }
+        }
+      );
 
     const newOTP = await User_OTPS.create({
         otp: otp,
         otp_expiry: expiresAt,
-        user_mobile_number: user.mobile_number,
+        user_slug: user.slug,
         otp_type: OTPType.RESET,
     })
 

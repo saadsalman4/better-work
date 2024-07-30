@@ -1,6 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
-const {UserRole} = require('../utils/constants')
+const { UserRole } = require('../utils/constants');
 
 module.exports = model;
 
@@ -31,7 +31,7 @@ function model(sequelize) {
         },
         sporting: {
             type: DataTypes.STRING,
-            allowNull: false
+            allowNull: false,
         },
         password: {
             type: DataTypes.STRING,
@@ -39,38 +39,48 @@ function model(sequelize) {
         },
         otp_verified: {
             type: DataTypes.BOOLEAN,
-            defaultValue: false
+            defaultValue: false,
         },
-        user_role: {
+        role: {
             type: DataTypes.ENUM(...Object.values(UserRole)),
-            allowNull: false
+            allowNull: false,
+            references: {
+                model: 'Roles',
+                key: 'role',
+            },
         },
     }, {
         defaultScope: {
-            // Exclude password hash by default
             attributes: { exclude: ['password'] },
         },
         scopes: {
-            // Include hash with this scope
             withHash: { attributes: {}, },
         },
         hooks: {
             beforeCreate: (user, options) => {
-                user.slug = uuidv4(); // Assign a UUID before creation
+                user.slug = uuidv4();
             },
         }
     });
 
     User.associate = function(models) {
         User.hasMany(models.User_keys, {
-            foreignKey: 'user_email',
-            sourceKey: 'email',
-            as: 'keys'
+            foreignKey: 'user_slug',
+            sourceKey: 'slug',
+            as: 'keys',
+            onDelete: 'CASCADE',
         });
         User.hasMany(models.User_OTPS, {
-            foreignKey: 'user_mobile_number',
-            sourceKey: 'mobile_number',
-            as: 'otps'
+            foreignKey: 'user_slug',
+            sourceKey: 'slug',
+            as: 'otps',
+            onDelete: 'CASCADE',
+        });
+
+        User.belongsTo(models.Role, {
+            foreignKey: 'role',
+            targetKey: 'role',
+            as: 'roleDetails',
         });
     };
 

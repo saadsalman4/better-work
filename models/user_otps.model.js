@@ -15,7 +15,7 @@ function model(sequelize) {
             allowNull: false,
         },
         otp: {
-            type: DataTypes.INTEGER,
+            type: DataTypes.STRING,
             allowNull: false
         },
         otp_expiry: {
@@ -26,10 +26,10 @@ function model(sequelize) {
             type: DataTypes.ENUM(...Object.values(OTPType)),
             allowNull: false,
         },
-        used: {
+        is_active: {
             type:DataTypes.BOOLEAN,
-            defaultValue: false
-        }
+            defaultValue: true
+        },
     }, {
         hooks: {
             beforeCreate: (user_otp, options) => {
@@ -40,8 +40,8 @@ function model(sequelize) {
 
     User_OTPS.associate = function(models) {
         User_OTPS.belongsTo(models.User, {
-            foreignKey: 'user_mobile_number',
-            targetKey: 'mobile_number',
+            foreignKey: 'user_slug',
+            targetKey: 'slug',
             as: 'user'
         });
     };

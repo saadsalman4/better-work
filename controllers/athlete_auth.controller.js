@@ -2,29 +2,17 @@ const bcrypt = require('bcryptjs');
 const { sequelize ,User, User_keys, User_OTPS } = require('../connect');
 const { Sequelize } = require('sequelize');
 const jwt = require('jsonwebtoken');
-const Joi = require('joi');
 const { UserRole, OTPType, TokenType } = require('../utils/constants');
-
-
-const registrationSchema = Joi.object({
-    full_name: Joi.string().max(100).required(),
-    email: Joi.string().email().required(),
-    mobile_number: Joi.string().length(11).required(),
-    sporting: Joi.string().required(),
-    password: Joi.string().min(6).required()
-});
+const { registrationSchema } = require('../utils/inputSchemas')
 
 async function signup (req, res){
-    let transaction;
     try{
-        transaction = await sequelize.transaction();
 
         const { error } = registrationSchema.validate(req.body);
         if (error) {
             return res.status(400).json({
                 code: 400,
-	            message: "Error creating user",
-	            data : error.details[0].message,
+	            message: error.details[0].message,
             })
         }
         const existingUser = await User.findOne({
@@ -52,19 +40,18 @@ async function signup (req, res){
         const newUser = await User.create({
             ...req.body,
             password: hashedPassword,
-            user_role: UserRole.ATHLETE
-        }, { transaction });
+            role: UserRole.ATHLETE
+        });
 
         const newOTP = await User_OTPS.create({
             otp:otp,
             otp_expiry: expiresAt,
-            user_mobile_number: newUser.mobile_number,
+            user_slug: newUser.slug,
             otp_type: OTPType.VERIFY,
-        }, { transaction });
+        });
 
         await sendOTP(newUser.mobile_number, otp)
 
-        await transaction.commit();
 
         return res.status(200).json({
             code: 200,
@@ -75,7 +62,6 @@ async function signup (req, res){
     }
     catch(e){
         console.error(e);
-        await transaction.rollback();
         return res.status(500).json({
             code: 500,
             message: "Server error",
@@ -93,30 +79,27 @@ async function verifyOTP (req, res){
         if(!user){
             return res.status(400).json({
                 code: 404,
-                message: "Error verifying user",
-	            data: "User not found",
+                message: "User not found",
             })
         }
         if(user.otp_verified==true){
             return res.status(400).json({
                 code: 400,
-                message: "Error verifying user",
-	            data: "OTP already verified",
+                message: "OTP already verified",
             })
         }
     
         const now = new Date();
     
         const latestOTP = await User_OTPS.findOne({
-            where: { user_mobile_number: mobile_number, otp_type: OTPType.VERIFY, used: false },
+            where: { user_slug: user.slug, otp_type: OTPType.VERIFY, is_active: true },
             order: [['createdAt', 'DESC']]
         });
 
         if (!latestOTP) {
             return res.status(400).json({
-                code: 404,
-                message: "Error verifying user",
-	            data: "OTP not found in database",
+                code: 400,
+                message: "OTP not generated",
             })
         }
         const savedOTP = latestOTP.otp.toString().trim();
@@ -125,16 +108,24 @@ async function verifyOTP (req, res){
         if (savedOTP !== enteredOTP || now > new Date(latestOTP.otp_expiry)) {
             return res.status(400).json({
                 code: 400,
-                message: "Error verifying user",
-	            data: "Invalid or expired OTP",
+                message: "Invalid or expired OTP",
             })
         }
 
         user.otp_verified = true;
-        latestOTP.used = true;
-        await user.save({transaction});
-        await latestOTP.save({transaction});
 
+        await User_OTPS.update(
+            { is_active: false }, // Set the fields to update
+            {
+              where: {
+                user_slug: user.slug,
+                otp_type: OTPType.VERIFY,
+                is_active: true
+              },
+              transaction // Optional: Include transaction if needed
+            }
+          );
+        await user.save({transaction});
         await transaction.commit();
 
         return res.status(200).json({
@@ -147,6 +138,7 @@ async function verifyOTP (req, res){
                 mobile_number: user.mobile_number,
             }
         })
+        
     }
     catch(e){
         await transaction.rollback();
@@ -161,13 +153,13 @@ async function verifyOTP (req, res){
 
 async function login (req, res){
     const { email, password } = req.body;
-
+    let transaction
     try{
+        transaction = await sequelize.transaction();
         if (!email || !password) {
             return res.status(400).json({ 
                 code: 400,
-	            message: "Error logging in",
-	            data : "Email/Password not entered",
+	            message: "Email/Password not entered",
             });
         }
 
@@ -175,8 +167,7 @@ async function login (req, res){
         if (!user) {
             return res.status(404).json({ 
                 code: 404,
-	            message: "Error logging in",
-	            data : "User not found",
+	            message: "User not found",
             });           
         }
 
@@ -184,8 +175,7 @@ async function login (req, res){
         if (!isPasswordValid) {
             return res.status(401).json({
                 code: 401,
-	            message: "Error logging in",
-	            data : "Invalid Password",
+	            message: "Invalid Password",
             }); 
         }
         if(user.otp_verified==false){
@@ -195,34 +185,55 @@ async function login (req, res){
 
             await sendOTP(user.mobile_number, otp)
 
+            await User_OTPS.update(
+                { is_active: false },
+                {
+                  where: {
+                    user_slug: user.slug,
+                    otp_type: OTPType.VERIFY,
+                    is_active: true
+                  }
+                }
+              );
+
             const newOTP = await User_OTPS.create({
                 otp: otp,
                 otp_expiry: expiresAt,
-                user_mobile_number: user.mobile_number,
+                user_slug: user.slug,
                 otp_type: OTPType.VERIFY,
                 
             })
+            
     
             return res.status(310).json({
-                code: 401,
-	            message: "Error logging in",
-	            data : "OTP not verified",
+                code: 310,
+	            message: "OTP not verified",
             }); 
         }
         const token = jwt.sign({ slug: user.slug, full_name: user.full_name, email: user.email }, process.env.SECRET_KEY, { expiresIn: '1h' });
 
-        await User_keys.destroy({
+        const currentKey = await User_keys.findOne({
             where: {
-              user_email: user.email,
-              tokenType: TokenType.ATHLETE_ACCESS
-            },
-          });
+              user_slug: user.slug,
+              tokenType: TokenType.ATHLETE_ACCESS,
+              is_active: true},
+              order: [['createdAt', 'DESC']],
+        });
 
-        const newKey = User_keys.create({
+        if(currentKey){
+            currentKey.is_active=false;
+            await currentKey.save({transaction}); 
+        }
+        
+
+        const newKey = await User_keys.create({
             api_token: token,
-            user_email: user.email,
+            user_slug: user.slug,
             tokenType: TokenType.ATHLETE_ACCESS
-        })
+        }, {transaction})
+
+
+        await transaction.commit()
 
         return res.status(200).json({
             code: 200,
@@ -238,6 +249,7 @@ async function login (req, res){
 
     }
     catch(e){
+        await transaction.rollback()
         console.error(e);
         return res.status(500).json({
             code: 500,
@@ -255,46 +267,58 @@ async function resendOTP(req, res){
     if(!user){
         return res.status(400).json({ 
             code: 404,
-            message: "Error resending OTP",
-            data : "User not found",
+            message: "User not found",
         });
     }
     if(user.otp_verified==true){
         return res.status(400).json({ 
             code: 400,
-            message: "Error resending OTP",
-            data : "OTP already verified",
+            message: "OTP already verified",
         });
     }
     const latestOTP = await User_OTPS.findOne({
-        where: { user_mobile_number: mobile_number, otp_type: OTPType.VERIFY, used: false },
+        where: { user_slug: user.slug, otp_type: OTPType.VERIFY, is_active: true },
         order: [['createdAt', 'DESC']]
     });
 
-    const now = new Date();
-    const otpExpiry = new Date(latestOTP.otp_expiry);
+    if(latestOTP){
 
-    const timeDifference = otpExpiry - now;
-    const limit = 570000;
-    if (timeDifference > limit) {
-        const secondsRemaining = Math.ceil((timeDifference - limit) / 1000);
+        const now = new Date();
+        const otpExpiry = new Date(latestOTP.otp_expiry);
 
-        return res.status(400).json({
-            code: 400,
-            message: "Error resending OTP",
-            data : `Please try again in ${secondsRemaining} seconds!`,
-        });
+        const timeDifference = otpExpiry - now;
+        const limit = 570000;
+        if (timeDifference > limit) {
+            const secondsRemaining = Math.ceil((timeDifference - limit) / 1000);
+
+            return res.status(400).json({
+                code: 400,
+                message: "Error resending OTP",
+                data : `Please try again in ${secondsRemaining} seconds!`,
+            });
+        }
     }
 
     const otp = generateOTP();
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
+    await User_OTPS.update(
+        { is_active: false },
+        {
+          where: {
+            user_slug: user.slug,
+            otp_type: OTPType.VERIFY,
+            is_active: true
+          }
+        }
+      );
+
 
     const newOTP = await User_OTPS.create({
         otp: otp,
         otp_expiry: expiresAt,
-        user_mobile_number: user.mobile_number,
+        user_slug: user.slug,
         otp_type: OTPType.VERIFY,
     })
 

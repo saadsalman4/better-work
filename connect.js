@@ -5,12 +5,14 @@ const sequelize = new Sequelize('betterWork', 'root', '', {
 });
 
 const User = require('./models/user.model')(sequelize);
-const User_keys = require('./models/user_keys.model')(sequelize);
+const User_keys = require('./models/api_token.model')(sequelize);
 const User_OTPS = require('./models/user_otps.model')(sequelize);
+const Role = require('./models/user_roles.model')(sequelize)
 
 const db = {
   sequelize,
   User,
+  Role,
   User_keys,
   User_OTPS
 };
@@ -21,7 +23,7 @@ Object.keys(db).forEach(modelName => {
   }
 }); 
 
-sequelize.sync({ alter: true }) 
+sequelize.sync() 
   .then(() => {
     console.log('Database & tables created or updated!');
   })

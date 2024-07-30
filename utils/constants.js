@@ -2,7 +2,8 @@
 // Enum for user roles
 const UserRole = {
     ATHLETE: 'athlete',
-    COACH: 'coach'
+    COACH: 'coach',
+    ADMIN: 'admin'
 };
 
 // Enum for OTP types

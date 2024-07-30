@@ -5,7 +5,7 @@ const {TokenType} = require('../utils/constants')
 module.exports = model;
 
 function model(sequelize) {
-    const User_keys = sequelize.define('UserKey', {
+    const User_keys = sequelize.define('api_tokens', {
         slug: {
             type: DataTypes.UUID,
             defaultValue: uuidv4,
@@ -21,6 +21,10 @@ function model(sequelize) {
             type: DataTypes.ENUM(...Object.values(TokenType)),
             allowNull: false,
         },
+        is_active : {
+            type: DataTypes.BOOLEAN,
+            defaultValue: true
+        },
     }, {
         hooks: {
             beforeCreate: (user_key, options) => {
@@ -31,8 +35,8 @@ function model(sequelize) {
 
     User_keys.associate = function(models) {
         User_keys.belongsTo(models.User, {
-            foreignKey: 'user_email',
-            targetKey: 'email',
+            foreignKey: 'user_slug',
+            targetKey: 'slug',
             as: 'user'
         });
     };
