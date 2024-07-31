@@ -12,3 +12,8 @@ exports.passwordSchema = Joi.object({
     newPassword: Joi.string().min(6).required(),
     newPasswordConfirmed: Joi.string().min(6).required(),
 });
+
+exports.postSchema = Joi.object({
+    caption: Joi.string().min(6).required(),
+    price: Joi.number()
+})

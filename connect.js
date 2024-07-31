@@ -9,13 +9,20 @@ const User = require('./models/user.model')(sequelize);
 const User_keys = require('./models/api_token.model')(sequelize);
 const User_OTPS = require('./models/user_otps.model')(sequelize);
 const Role = require('./models/user_roles.model')(sequelize)
+const Posts_Workouts = require('./models/posts_workouts.model')(sequelize)
+const Sections = require('./models/sections.model')(sequelize)
+const Exercises = require('./models/exercise.model')(sequelize)
+
 
 const db = {
   sequelize,
   User,
   Role,
   User_keys,
-  User_OTPS
+  User_OTPS,
+  Posts_Workouts,
+  Sections,
+  Exercises,
 };
 
 Object.keys(db).forEach(modelName => {

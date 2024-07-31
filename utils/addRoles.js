@@ -14,4 +14,4 @@ const initializeRoles = async () => {
     }
 };
 
-initializeRoles(); // Call the function to initialize roles
+initializeRoles();

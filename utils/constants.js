@@ -19,10 +19,17 @@ const TokenType = {
     COACH_RESET: 'coach_reset'
 };
 
+const PostType = {
+    POST: 'post',
+    WORKOUT: 'workout',
+    TEMPLATE: 'template'
+}
+
 
 // Exporting all enums
 module.exports = {
     UserRole,
     OTPType,
-    TokenType
+    TokenType,
+    PostType
 };
