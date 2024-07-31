@@ -16,6 +16,7 @@ async function forgotPassword (req, res){
             return res.status(404).json({
                 code: 404,
                 message: "User not found",
+                data: []
             });
         }
         const otp = generateOTP()
@@ -44,14 +45,15 @@ async function forgotPassword (req, res){
         return res.status(200).json({
             code: 200,
             message: "OTP sent successfully",
+            data: []
         })
     }
     catch(e){
         console.error(e);
         return res.status(500).json({
             code: 500,
-            message: "Server error",
-            data: e.message
+            message: e.message,
+            data: []
         });
     }
 }
@@ -66,6 +68,7 @@ async function verifyOTP (req, res){
             return res.status(404).json({
                 code: 404,
                 message: "User not found",
+                data: []
             });
         }
         const now = new Date();
@@ -79,6 +82,7 @@ async function verifyOTP (req, res){
             return res.status(404).json({
                 code: 404,
                 message: "OTP not found, please request OTP first",
+                data: []
             });
         }
 
@@ -88,7 +92,8 @@ async function verifyOTP (req, res){
         if (savedOTP !== enteredOTP || now > new Date(latestOTP.otp_expiry)) {
             return res.status(401).json({
                 code: 401,
-                message: "Incorrect OTP entered or OTP expired",            
+                message: "Incorrect OTP entered or OTP expired",
+                data: []      
             });
         }
         const payload = {
@@ -149,8 +154,8 @@ async function verifyOTP (req, res){
         console.error(e);
         return res.status(500).json({
             code: 500,
-            message: "Server error",
-            data: e.message
+            message: e.message,
+            data: []
         });
     }
 }
@@ -165,6 +170,7 @@ async function resetPassword(req, res){
             return res.status(401).json({
                 code: 401,
                 message: "Invalid authorization",
+                data: []
             });
         }
         const checkKey = await User_keys.findOne({ where: {
@@ -177,6 +183,7 @@ async function resetPassword(req, res){
             return res.status(401).json({
                 code: 401,
                 message: "Invalid authorization",
+                data: []
             });
         }
         const userPayload = jwt.verify(token, process.env.SECRET_KEY);
@@ -184,14 +191,15 @@ async function resetPassword(req, res){
             return res.status(401).json({
                 code: 401,
                 message: "Invalid authorization",
+                data: []
             });
         }
         const { error } = passwordSchema.validate(req.body);
         if (error) {
             return res.status(400).json({
                 code: 400,
-                message: "Invalid password format",
-                data: error.details[0].message
+                message: error.details[0].message,
+                data: []
             });
         }
         const user = await User.scope('withHash').findOne({ where: { slug: userPayload.slug } });
@@ -199,12 +207,14 @@ async function resetPassword(req, res){
             return res.status(404).json({
                 code: 404,
                 message: "User not found",
+                data: []
             });
         }
         if (newPassword !== newPasswordConfirmed) {
             return res.status(400).json({
                 code: 400,
                 message: "Passwords do not match",
+                data: []
             });
         }
         const salt = await bcrypt.genSalt(10);
@@ -231,6 +241,7 @@ async function resetPassword(req, res){
         return res.status(200).json({
             code: 200,
             message: "Password changed successfully",
+            data: []
         });
 
     }
@@ -239,8 +250,8 @@ async function resetPassword(req, res){
         console.error(error);
         return res.status(500).json({
             code: 500,
-            message: "Server error",
-            data: e.message
+            message: e.message,
+            data: []
         });
     }
 }
@@ -253,6 +264,7 @@ async function resendOTP(req, res){
         return res.status(400).json({ 
             code: 400,
             message: "User not found",
+            data: []
         });
     }
     const latestOTP = await User_OTPS.findOne({
@@ -264,6 +276,7 @@ async function resendOTP(req, res){
         return res.status(400).json({ 
             code: 404,
             message: "Error. Try forget password again!",
+            data: []
         });
     }
 
@@ -277,8 +290,8 @@ async function resendOTP(req, res){
 
         return res.status(400).json({
             code: 400,
-            message: "Error resending OTP",
-            data : `Please try again in ${secondsRemaining} seconds!`,
+            message: `Please try again in ${secondsRemaining} seconds!`,
+            data : [],
         });
     }
 
@@ -308,7 +321,8 @@ async function resendOTP(req, res){
 
     return res.status(200).json({
         code: 200,
-        message: "OTP was resent successfully"
+        message: "OTP was resent successfully",
+        data: []
     });
 
 
@@ -317,8 +331,8 @@ async function resendOTP(req, res){
         console.error(e);
         return res.status(500).json({
             code: 500,
-            message: "Server error",
-            data: e.message
+            message: e.message,
+            data: []
         });
     }
 }

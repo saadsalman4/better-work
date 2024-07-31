@@ -1,4 +1,5 @@
 const { Sequelize, DataTypes } = require('sequelize');
+const { FORCE } = require('sequelize/lib/index-hints');
 const sequelize = new Sequelize('betterWork', 'root', '', {
   host: 'localhost',
   dialect: 'mysql',

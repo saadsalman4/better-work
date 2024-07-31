@@ -13,6 +13,7 @@ async function signup (req, res){
             return res.status(400).json({
                 code: 400,
 	            message: error.details[0].message,
+                data: []
             })
         }
         const existingUser = await User.findOne({
@@ -27,7 +28,8 @@ async function signup (req, res){
         if (existingUser) {
             return res.status(400).json({
                 code: 400,
-	            message: "Email or Mobile Number already in use"
+	            message: "Email or Mobile Number already in use",
+                data: []
             })
         }
         const salt = await bcrypt.genSalt(10);
@@ -40,7 +42,7 @@ async function signup (req, res){
         const newUser = await User.create({
             ...req.body,
             password: hashedPassword,
-            role: UserRole.ATHLETE
+            role: UserRole.USER
         });
 
         const newOTP = await User_OTPS.create({
@@ -55,7 +57,8 @@ async function signup (req, res){
 
         return res.status(200).json({
             code: 200,
-            message: "User created, proceed to verify"
+            message: "User created, proceed to verify",
+            data: []
         })
         
 
@@ -64,8 +67,8 @@ async function signup (req, res){
         console.error(e);
         return res.status(500).json({
             code: 500,
-            message: "Server error",
-            data: e.message
+            message: e.message,
+            data: []
         })
     }
 }
@@ -80,12 +83,14 @@ async function verifyOTP (req, res){
             return res.status(400).json({
                 code: 404,
                 message: "User not found",
+                data: []
             })
         }
         if(user.otp_verified==true){
             return res.status(400).json({
                 code: 400,
                 message: "OTP already verified",
+                data: []
             })
         }
     
@@ -100,6 +105,7 @@ async function verifyOTP (req, res){
             return res.status(400).json({
                 code: 400,
                 message: "OTP not generated",
+                data: []
             })
         }
         const savedOTP = latestOTP.otp.toString().trim();
@@ -109,6 +115,7 @@ async function verifyOTP (req, res){
             return res.status(400).json({
                 code: 400,
                 message: "Invalid or expired OTP",
+                data: []
             })
         }
 
@@ -130,13 +137,8 @@ async function verifyOTP (req, res){
 
         return res.status(200).json({
             code: 200,
-            message: "User verified successfully",
-            data: {
-                slug: user.slug,
-                full_name: user.full_name,
-                email: user.email,
-                mobile_number: user.mobile_number,
-            }
+            message: "User verified successfully, proceed to login",
+            data: []
         })
         
     }
@@ -145,8 +147,8 @@ async function verifyOTP (req, res){
         console.error(e);
         return res.status(500).json({
             code: 500,
-            message: "Server error",
-            data: e.message
+            message: e.message,
+            data: []
         });
     }
 }
@@ -160,6 +162,7 @@ async function login (req, res){
             return res.status(400).json({ 
                 code: 400,
 	            message: "Email/Password not entered",
+                data: []
             });
         }
 
@@ -168,6 +171,7 @@ async function login (req, res){
             return res.status(404).json({ 
                 code: 404,
 	            message: "User not found",
+                data: []
             });           
         }
 
@@ -176,6 +180,7 @@ async function login (req, res){
             return res.status(401).json({
                 code: 401,
 	            message: "Invalid Password",
+                data: []
             }); 
         }
         if(user.otp_verified==false){
@@ -208,6 +213,7 @@ async function login (req, res){
             return res.status(310).json({
                 code: 310,
 	            message: "OTP not verified",
+                data: []
             }); 
         }
         const token = jwt.sign({ slug: user.slug, full_name: user.full_name, email: user.email }, process.env.SECRET_KEY, { expiresIn: '1h' });
@@ -253,8 +259,8 @@ async function login (req, res){
         console.error(e);
         return res.status(500).json({
             code: 500,
-            message: "Server error",
-            data: e.message
+            message: e.message,
+            data: []
         });
     }
 
@@ -268,12 +274,14 @@ async function resendOTP(req, res){
         return res.status(400).json({ 
             code: 404,
             message: "User not found",
+            data: []
         });
     }
     if(user.otp_verified==true){
         return res.status(400).json({ 
             code: 400,
             message: "OTP already verified",
+            data: []
         });
     }
     const latestOTP = await User_OTPS.findOne({
@@ -293,8 +301,8 @@ async function resendOTP(req, res){
 
             return res.status(400).json({
                 code: 400,
-                message: "Error resending OTP",
-                data : `Please try again in ${secondsRemaining} seconds!`,
+                message: `Please try again in ${secondsRemaining} seconds!`,
+                data : []
             });
         }
     }
@@ -326,7 +334,8 @@ async function resendOTP(req, res){
 
     return res.status(200).json({
         code: 200,
-        message: "OTP was resent successfully"
+        message: "OTP was resent successfully",
+        data: []
     });
 
 
@@ -335,8 +344,8 @@ async function resendOTP(req, res){
         console.error(e);
         return res.status(500).json({
             code: 500,
-            message: "Server error",
-            data: e.message
+            message: e.message,
+            data: []
         });
     }
 }

@@ -1,8 +1,7 @@
 
 // Enum for user roles
 const UserRole = {
-    ATHLETE: 'athlete',
-    COACH: 'coach',
+    USER: 'user',
     ADMIN: 'admin'
 };
 

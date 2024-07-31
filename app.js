@@ -7,20 +7,18 @@ const connect = require("./connect");
 const multer = require('multer')
 const upload = multer()
 
+const rolesAdding = require('./utils/addRoles')
+
 app.use(upload.any())
 
 const athleteAuthRoutes = require('./routes/athlete_auth.routes')
 const athleteAccountRoutes = require('./routes/athlete_account.routes')
-
-const addRole = require('./utils/addRole')
 
 app.use(express.json())
 
 //routes
 app.use('/api/athlete', athleteAuthRoutes)
 app.use('/api/athlete/account', athleteAccountRoutes)
-
-app.use('/temp', addRole)
 
 
 
