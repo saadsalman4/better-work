@@ -1,6 +1,6 @@
-const { sequelize, User, Posts_Workouts, Sections, Exercises, workoutExercise } = require('../connect');
+const { sequelize, User, Posts_Workouts, Sections, workoutExercise, templateExercises } = require('../connect');
 const jwt = require('jsonwebtoken');
-const {postSchema, workoutSchema} = require('../utils/inputSchemas');
+const {postSchema, workoutSchema, templateSchema} = require('../utils/inputSchemas');
 const { PostType } = require('../utils/constants');
 const path = require ('path')
 const fs = require('fs')
@@ -152,6 +152,7 @@ async function createWorkout (req, res){
                 tag: newWorkout.tag,
                 price: newWorkout.price,
                 exercises,
+                user_slug: newWorkout.user_slug
             }
         });
 
@@ -168,4 +169,70 @@ async function createWorkout (req, res){
     }
 }
 
-module.exports = {createPost, createWorkout }
+async function createTemplate (req, res){
+    const { templateName, sections } = req.body;
+    let transaction;
+
+    try{
+        const { error } = templateSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({
+                code: 400,
+	            message: error.details[0].message,
+                data: []
+            })
+        }
+        transaction = await sequelize.transaction();
+
+        const newTemplate = await Posts_Workouts.create({
+            type: PostType.TEMPLATE,
+            title: templateName,
+            user_slug: req.user.slug
+        }, { transaction });
+
+        for (const sectionData of sections) {
+            const { name, exercises } = sectionData;
+
+            const newSection = await Sections.create({
+                name,
+                posts_workouts_slug: newTemplate.slug
+            }, { transaction });
+
+            for (const exerciseData of exercises) {
+                await templateExercises.create({
+                    name: exerciseData.name,
+                    intensity: exerciseData.intensity,
+                    standard_time: exerciseData.standard_time,
+                    goal_time: exerciseData.goal_time,
+                    notes: exerciseData.notes,
+                    section_slug: newSection.slug
+                }, { transaction });
+            }
+        }
+
+        await transaction.commit();
+
+        return res.status(201).json({
+            code: 201,
+            message: 'Template created successfully',
+            data: {
+                slug: newTemplate.slug,
+                templateName: newTemplate.title,
+                sections,
+                user_slug: newTemplate.user_slug
+            }
+        });
+
+    }
+    catch(e){
+        if (transaction) await transaction.rollback();
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: e.message
+        });
+    }
+}
+
+module.exports = {createPost, createWorkout, createTemplate }

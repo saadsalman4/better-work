@@ -96,3 +96,56 @@ exports.workoutSchema = Joi.object({
         'any.required': 'Exercises are required.',
     }),
 });
+
+exports.templateSchema = Joi.object({
+    templateName: Joi.string().required().messages({
+        'string.base': 'Template name should be a type of text.',
+        'string.empty': 'Template name is required.',
+        'any.required': 'Template name is required.',
+    }),
+    sections: Joi.array().items(
+        Joi.object({
+            name: Joi.string().required().messages({
+                'string.base': 'Section name should be a type of text.',
+                'string.empty': 'Section name is required.',
+                'any.required': 'Section name is required.',
+            }),
+            exercises: Joi.array().items(
+                Joi.object({
+                    name: Joi.string().required().messages({
+                        'string.base': 'Exercise name should be a type of text.',
+                        'string.empty': 'Exercise name is required.',
+                        'any.required': 'Exercise name is required.',
+                    }),
+                    intensity: Joi.string().required().messages({
+                        'string.base': 'Intensity should be a type of text.',
+                        'any.only': 'Intensity must be one of Low, Medium, or High.',
+                        'any.required': 'Intensity is required.',
+                    }),
+                    standard_time: Joi.string().required().messages({
+                        'string.base': 'Standard time should be a type of text.',
+                        'string.empty': 'Standard time is required.',
+                        'any.required': 'Standard time is required.',
+                    }),
+                    goal_time: Joi.string().required().messages({
+                        'string.base': 'Goal time should be a type of text.',
+                        'string.empty': 'Goal time is required.',
+                        'any.required': 'Goal time is required.',
+                    }),
+                    notes: Joi.string().optional().allow(null, '').messages({
+                        'string.base': 'Notes should be a type of text.',
+                    }),
+                })
+            ).min(1).required().messages({
+                'array.base': 'Exercises should be an array.',
+                'array.min': 'At least one exercise is required.',
+                'any.required': 'Exercises are required.',
+            }),
+        })
+    ).min(1).required().messages({
+        'array.base': 'Sections should be an array.',
+        'array.min': 'At least one section is required.',
+        'any.required': 'Sections are required.',
+    }),
+});
+
