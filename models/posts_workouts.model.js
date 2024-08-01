@@ -58,7 +58,7 @@ function model(sequelize) {
             as: 'workouts'
         });
 
-        Posts_Workouts.hasMany(models.User, {
+        Posts_Workouts.belongsTo(models.User, {
             foreignKey: 'user_slug',
             sourceKey: 'slug',
             as: 'user'

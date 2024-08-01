@@ -80,7 +80,7 @@ async function createPost(req, res){
 }
 
 async function createWorkout (req, res){
-    const { title, description, tag, exercises } = req.body;
+    const { title, description, tags, exercises } = req.body;
     let transaction;
     try{
         if (!req.files || !req.files.length) {
@@ -122,7 +122,7 @@ async function createWorkout (req, res){
             title,
             media: filePath,
             description,
-            tag,
+            tag: tags.join(','),
             price: req.body.price,
             user_slug: req.user.slug
         }, { transaction });
@@ -149,7 +149,7 @@ async function createWorkout (req, res){
                 title: newWorkout.title,
                 media: newWorkout.media,
                 description: newWorkout.description,
-                tag: newWorkout.tag,
+                tags,
                 price: newWorkout.price,
                 exercises,
                 user_slug: newWorkout.user_slug
@@ -321,7 +321,7 @@ async function updatePost(req, res) {
 }
 
 async function updateWorkout(req, res) {
-    const { title, description, tag, exercises } = req.body;
+    const { title, description, tags, exercises } = req.body;
     const workoutSlug = req.params.slug;
     let transaction;
 
@@ -378,7 +378,7 @@ async function updateWorkout(req, res) {
         await workout.update({
             title: title || workout.title,
             description: description || workout.description,
-            tag: tag || workout.tag,
+            tag: tags.join(','),
             price: req.body.price || workout.price,
             media: filePath
         }, { transaction });
@@ -410,7 +410,7 @@ async function updateWorkout(req, res) {
                 title: workout.title,
                 media: workout.media,
                 description: workout.description,
-                tag: workout.tag,
+                tags,
                 price: workout.price,
                 exercises,
                 user_slug: workout.user_slug
@@ -649,6 +649,323 @@ async function viewTemplates(req, res){
 
     }
 }
+
+async function postView(req, res){
+    const { slug } = req.params;
+
+    try {
+        const post = await Posts_Workouts.findOne({
+            where: { slug, type: PostType.POST },
+            attributes: ['slug', 'title', 'media', 'price', 'createdAt'],
+            include: [
+                {
+                    model: User,
+                    as: 'user',
+                    attributes: ['slug', 'full_name', 'email', 'profileImage'],
+                },
+            ],
+        });
+
+        // Check if post exists
+        if (!post) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Post not found',
+                data: [],
+            });
+        }
+
+        // Process media URL
+        const protocol = req.protocol;
+        const host = req.get('host');
+        post.media = protocol + '://' + host + '/' + post.media.split(path.sep).join('/');
+
+        // Include user profile image URL processing
+        if (post.user.profileImage) {
+            post.user.profileImage = protocol + '://' + host + '/' + post.user.profileImage.split(path.sep).join('/');
+        }
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Post retrieved successfully',
+            data: {
+                slug: post.slug,
+                title: post.title,
+                media: post.media,
+                price: post.price,
+                createdAt: post.createdAt,
+                user: {
+                    slug: post.user.slug,
+                    full_name: post.user.full_name,
+                    email: post.user.email,
+                    profileImage: post.user.profileImage,
+                },
+            },
+        });
+    } catch (e) {
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: e.message,
+        });
+    }
+}
+
+async function workoutView(req, res){
+    const {slug} = req.params;
+    try{
+        const workout = await Posts_Workouts.findOne({
+            where: { slug, type: PostType.WORKOUT },
+            attributes: ['slug', 'title', 'media', 'description', 'tag', 'price'],
+            include: [
+                {
+                    model: workoutExercise,
+                    as: 'workouts',
+                    attributes: ['name', 'details'],
+                },
+            ],
+        });
+
+        if(!workout){
+            return res.status(404).json({
+                code: 404,
+                message: 'Workout not found',
+                data: [],
+            });
+        }
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+        workout.media = protocol + '://' + host + '/' + workout.media.split(path.sep).join('/');
+
+        // Split tags into an array if they are stored as a comma-separated string
+        const tagsArray = workout.tag ? workout.tag.split(',') : [];
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Workout retrieved successfully',
+            data: {
+                slug: workout.slug,
+                title: workout.title,
+                media: workout.media,
+                description: workout.description,
+                tag: tagsArray,
+                price: workout.price,
+                exercises: workout.workouts, // List of exercises
+            },
+        });
+
+    }
+    catch(e){
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: e.message,
+        });
+    }
+}
+
+async function templateView(req, res) {
+    const { slug } = req.params;
+
+    try {
+        const template = await Posts_Workouts.findOne({
+            where: { slug, type: PostType.TEMPLATE },
+            attributes: ['slug', 'title', 'createdAt'],
+            include: [
+                {
+                    model: Sections,
+                    as: 'sections',
+                    attributes: ['slug', 'name'],
+                    include: [
+                        {
+                            model: templateExercises,
+                            as: 'exercises',
+                            attributes: ['name', 'intensity', 'standard_time', 'goal_time', 'notes'],
+                        },
+                    ],
+                },
+            ],
+        });
+
+        if (!template) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Template not found',
+                data: [],
+            });
+        }
+
+        const templateData = {
+            slug: template.slug,
+            templateName: template.title,
+            createdAt: template.createdAt,
+            sections: template.sections.map(section => ({
+                slug: section.slug,
+                name: section.name,
+                exercises: section.exercises.map(exercise => ({
+                    name: exercise.name,
+                    intensity: exercise.intensity,
+                    standard_time: exercise.standard_time,
+                    goal_time: exercise.goal_time,
+                    notes: exercise.notes,
+                })),
+            })),
+        };
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Template retrieved successfully',
+            data: templateData,
+        });
+    } catch (e) {
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: e.message,
+        });
+    }
+}
+
+async function deletePost(req, res) {
+    const { slug } = req.params;
+    const currentUserSlug = req.user.slug;
+
+    try {
+        // Find the post by slug
+        const post = await Posts_Workouts.findOne({ where: { slug, type: PostType.POST } });
+
+        // Check if post exists
+        if (!post) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Post not found',
+                data: [],
+            });
+        }
+
+        // Check if the current user is the owner of the post
+        if (post.user_slug !== currentUserSlug) {
+            return res.status(403).json({
+                code: 403,
+                message: 'Unauthorized to delete this post',
+                data: [],
+            });
+        }
+
+        // Delete the post
+        await post.destroy();
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Post deleted successfully',
+            data: [],
+        });
+    } catch (e) {
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: e.message,
+        });
+    }
+}
+
+async function deleteWorkout(req, res) {
+    const { slug } = req.params;
+    const currentUserSlug = req.user.slug;
+
+    try {
+        // Find the workout by slug
+        const workout = await Posts_Workouts.findOne({ where: { slug, type: PostType.WORKOUT } });
+
+        // Check if workout exists
+        if (!workout) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Workout not found',
+                data: [],
+            });
+        }
+
+        // Check if the current user is the owner of the workout
+        if (workout.user_slug !== currentUserSlug) {
+            return res.status(403).json({
+                code: 403,
+                message: 'Unauthorized to delete this workout',
+                data: [],
+            });
+        }
+
+        // Delete the workout
+        await workout.destroy();
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Workout deleted successfully',
+            data: [],
+        });
+    } catch (e) {
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: e.message,
+        });
+    }
+}
+
+async function deleteTemplate(req, res) {
+    const { slug } = req.params;
+    const currentUserSlug = req.user.slug;
+
+    try {
+        // Find the template by slug
+        const template = await Posts_Workouts.findOne({ where: { slug, type: PostType.TEMPLATE } });
+
+        // Check if template exists
+        if (!template) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Template not found',
+                data: [],
+            });
+        }
+
+        // Check if the current user is the owner of the template
+        if (template.user_slug !== currentUserSlug) {
+            return res.status(403).json({
+                code: 403,
+                message: 'Unauthorized to delete this template',
+                data: [],
+            });
+        }
+
+        // Delete associated sections
+        await Sections.destroy({ where: { posts_workouts_slug: slug } });
+
+        // Delete the template
+        await template.destroy();
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Template deleted successfully',
+            data: [],
+        });
+    } catch (e) {
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: e.message,
+        });
+    }
+}
+
 module.exports = {createPost, createWorkout, createTemplate, updatePost, updateWorkout, updateTemplate,
-    viewAll, viewPosts, viewWorkouts, viewTemplates
+    viewAll, viewPosts, viewWorkouts, viewTemplates, workoutView, postView, templateView, deletePost,
+    deleteWorkout, deleteTemplate
  }

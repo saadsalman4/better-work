@@ -2,8 +2,8 @@ const express = require("express");
 const { userAuth } = require('../middlewares/authCheck');
 const {createPost, createWorkout, createTemplate, updatePost, 
     updateWorkout, updateTemplate, viewAll, viewPosts, 
-    viewWorkouts,
-    viewTemplates} = require('../controllers/posts_workouts.controller')
+    viewWorkouts, viewTemplates, workoutView, postView, templateView,
+    deletePost, deleteWorkout, deleteTemplate} = require('../controllers/posts_workouts.controller')
 
 const router = express.Router();
 
@@ -19,6 +19,14 @@ router.get('/view-all', userAuth, viewAll)
 router.get('/view-posts', userAuth, viewPosts)
 router.get('/view-workouts', userAuth, viewWorkouts)
 router.get('/view-templates', userAuth, viewTemplates)
+
+router.get('/view-post/:slug', userAuth, postView)
+router.get('/view-workout/:slug', userAuth, workoutView)
+router.get('/view-template/:slug', userAuth, templateView)
+
+router.delete('/delete-post/:slug', userAuth, deletePost)
+router.delete('/delete-workout/:slug', userAuth, deleteWorkout)
+router.delete('/delete-template/:slug', userAuth, deleteTemplate)
 
 
 module.exports = router;

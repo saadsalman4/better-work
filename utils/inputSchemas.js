@@ -71,10 +71,9 @@ exports.workoutSchema = Joi.object({
     description: Joi.string().optional().messages({
         'string.base': 'Description should be a type of text.',
     }),
-    tag: Joi.string().required().messages({
-        'string.base': 'Tag should be a type of text.',
-        'string.empty': 'Tag is required.',
-        'any.required': 'Tag is required.',
+    tags: Joi.array().items(Joi.string()).optional().messages({
+        'array.base': 'Tags should be an array of strings.',
+        'string.base': 'Each tag should be a string.',
     }),
     price: Joi.number().optional().messages({
         'number.base': 'Price should be a type of number.',

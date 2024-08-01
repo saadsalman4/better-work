@@ -37,6 +37,10 @@ function model(sequelize) {
             type: DataTypes.STRING,
             allowNull: false,
         },
+        profileImage:{
+            type: DataTypes.STRING,
+            allowNull: true
+        },
         otp_verified: {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
