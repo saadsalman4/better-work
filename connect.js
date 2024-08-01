@@ -33,7 +33,7 @@ Object.keys(db).forEach(modelName => {
   }
 }); 
 
-sequelize.sync({alter: false}) 
+sequelize.sync() 
   .then(() => {
     console.log('Database & tables created or updated!');
   })

@@ -29,12 +29,16 @@ module.exports = (sequelize) => {
             foreignKey: 'posts_workouts_slug',
             targetKey: 'slug',
             as: 'postsWorkouts',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
         });
 
         Sections.hasMany(models.templateExercises, {
             foreignKey: 'section_slug',
             sourceKey: 'slug',
-            as: 'exercises'
+            as: 'exercises',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
         });
     };
 

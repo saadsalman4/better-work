@@ -14,7 +14,7 @@ const userAuth = async (req, res, next) => {
   }
 
   try {
-    const checkKey = await User_keys.findOne({ where: {api_token: token, tokenType: TokenType.ATHLETE_ACCESS }});
+    const checkKey = await User_keys.findOne({ where: {api_token: token, tokenType: TokenType.ATHLETE_ACCESS, is_active: true }});
     if(!checkKey){
         return res.status(401).json({
             code: 401,
