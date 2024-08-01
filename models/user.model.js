@@ -45,6 +45,10 @@ function model(sequelize) {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
         },
+        push_notifications: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: true
+        },
         role: {
             type: DataTypes.ENUM(...Object.values(UserRole)),
             allowNull: false,

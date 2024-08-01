@@ -148,3 +148,13 @@ exports.templateSchema = Joi.object({
     }),
 });
 
+exports.editProfileSchema = Joi.object({
+    full_name: Joi.string().optional().allow(null, '').messages({
+        'string.base': 'Full name should be a type of text.',
+        'string.empty': 'Full name cannot be an empty string.',
+    }),
+    sport: Joi.string().optional().allow(null, '').messages({
+        'string.base': 'Sport should be a type of text.',
+        'string.empty': 'Sport cannot be an empty string.',
+    }),
+});

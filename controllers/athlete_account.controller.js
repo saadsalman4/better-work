@@ -3,7 +3,7 @@ const { sequelize, User, User_OTPS, User_keys } = require('../connect');
 const jwt = require('jsonwebtoken');
 const {generateOTP, sendOTP } = require("./athlete_auth.controller")
 const { UserRole, OTPType, TokenType } = require('../utils/constants');
-const {passwordSchema} = require('../utils/inputSchemas')
+const {passwordSchema, editProfileSchema} = require('../utils/inputSchemas')
 
 
 
@@ -337,5 +337,55 @@ async function resendOTP(req, res){
     }
 }
 
+async function editProfile(req, res){
+    const { full_name, sport } = req.body;
+    const userSlug = req.user.slug;
 
-module.exports = {forgotPassword, verifyOTP, resetPassword, resendOTP}
+    try {
+        // Validate the request body
+        const { error } = editProfileSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({
+                code: 400,
+                message: error.details[0].message,
+                data: [],
+            });
+        }
+
+        // Find the user by slug
+        const user = await User.findOne({ where: { slug: userSlug } });
+
+        // Check if user exists
+        if (!user) {
+            return res.status(404).json({
+                code: 404,
+                message: 'User not found',
+                data: [],
+            });
+        }
+
+        // Update the user's profile
+        if (full_name !== undefined) user.full_name = full_name;
+        if (sport !== undefined) user.sporting = sport;
+
+        await user.save();
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Profile updated successfully',
+            data: {
+                full_name: user.full_name,
+                sport: user.sporting,
+            },
+        });
+    } catch (e) {
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: e.message,
+        });
+    }
+}
+
+module.exports = {forgotPassword, verifyOTP, resetPassword, resendOTP, editProfile}

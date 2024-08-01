@@ -362,4 +362,5 @@ function sendOTP(mobile, otp){
     console.log('OTP sent at ' + mobile + ': ' + otp)
 }
 
+
 module.exports = {signup, verifyOTP, login, resendOTP, generateOTP, sendOTP}
