@@ -52,6 +52,12 @@ function model(sequelize) {
             as: 'sections'
         });
 
+        Posts_Workouts.hasMany(models.workoutExercise, {
+            foreignKey: 'posts_workouts_slug',
+            sourceKey: 'slug',
+            as: 'workouts'
+        });
+
         Posts_Workouts.hasMany(models.User, {
             foreignKey: 'user_slug',
             sourceKey: 'slug',

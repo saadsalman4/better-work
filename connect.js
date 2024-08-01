@@ -11,7 +11,8 @@ const User_OTPS = require('./models/user_otps.model')(sequelize);
 const Role = require('./models/user_roles.model')(sequelize)
 const Posts_Workouts = require('./models/posts_workouts.model')(sequelize)
 const Sections = require('./models/sections.model')(sequelize)
-const Exercises = require('./models/exercise.model')(sequelize)
+const templateExercises = require('./models/template_exercise.model')(sequelize)
+const workoutExercise = require('./models/workout_exercise.model')(sequelize)
 
 
 const db = {
@@ -22,7 +23,8 @@ const db = {
   User_OTPS,
   Posts_Workouts,
   Sections,
-  Exercises,
+  templateExercises,
+  workoutExercise
 };
 
 Object.keys(db).forEach(modelName => {
@@ -31,7 +33,7 @@ Object.keys(db).forEach(modelName => {
   }
 }); 
 
-sequelize.sync() 
+sequelize.sync({alter: false}) 
   .then(() => {
     console.log('Database & tables created or updated!');
   })

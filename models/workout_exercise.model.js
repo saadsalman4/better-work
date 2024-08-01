@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 
 module.exports = (sequelize) => {
-    const Sections = sequelize.define('Sections', {
+    const workoutExercise = sequelize.define('workout_exercise', {
         slug: {
             type: DataTypes.UUID,
             defaultValue: uuidv4,
@@ -14,6 +14,10 @@ module.exports = (sequelize) => {
             type: DataTypes.STRING,
             allowNull: false,
         },
+        details: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
         posts_workouts_slug: {
             type: DataTypes.UUID,
             allowNull: false,
@@ -24,19 +28,13 @@ module.exports = (sequelize) => {
         },
     });
 
-    Sections.associate = function(models) {
-        Sections.belongsTo(models.Posts_Workouts, {
+    workoutExercise.associate = function(models) {
+        workoutExercise.belongsTo(models.Posts_Workouts, {
             foreignKey: 'posts_workouts_slug',
             targetKey: 'slug',
-            as: 'postsWorkouts',
-        });
-
-        Sections.hasMany(models.templateExercises, {
-            foreignKey: 'section_slug',
-            sourceKey: 'slug',
-            as: 'exercises'
+            as: 'workout',
         });
     };
 
-    return Sections;
+    return workoutExercise;
 };

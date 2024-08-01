@@ -1,11 +1,10 @@
 const { DataTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
-const { Exercises } = require('../connect');
 
 module.exports = model;
 
 function model(sequelize) {
-    const Exercises = sequelize.define('exercise', {
+    const templateExercises = sequelize.define('template_exercise', {
         slug: {
             type: DataTypes.UUID,
             defaultValue: uuidv4,
@@ -41,8 +40,8 @@ function model(sequelize) {
         }
     });
 
-    Exercises.associate = function(models) {
-        Exercises.belongsTo(models.Sections, {
+    templateExercises.associate = function(models) {
+        templateExercises.belongsTo(models.Sections, {
             foreignKey: 'section_slug',
             targetKey: 'slug',
             as: 'section',
@@ -51,5 +50,5 @@ function model(sequelize) {
         });
     };
 
-    return Exercises;
+    return templateExercises;
 }
