@@ -3,7 +3,9 @@ const { sequelize, User, User_OTPS, User_keys } = require('../connect');
 const jwt = require('jsonwebtoken');
 const {generateOTP, sendOTP } = require("./athlete_auth.controller")
 const { UserRole, OTPType, TokenType } = require('../utils/constants');
-const {passwordSchema, editProfileSchema} = require('../utils/inputSchemas')
+const {passwordSchema, editProfileSchema} = require('../utils/inputSchemas');
+const path = require('path')
+const fs = require('fs')
 
 
 
@@ -364,11 +366,36 @@ async function editProfile(req, res){
             });
         }
 
+        if (req.files) {
+            const uploadedFile = req.files[0];
+            const fileName = Date.now() + '_' + uploadedFile.originalname;
+        
+            const filePath = path.join('public', fileName);
+        
+            fs.writeFile(filePath, uploadedFile.buffer, async (err) => {
+            if (err) {
+                console.error('Error saving file:', err);
+                return res.status(500).json({
+                    code: 500,
+                    message: 'An error occurred while saving the file',
+                    data: []
+                });
+            }
+            })
+            user.profileImage = filePath
+          }
+
         // Update the user's profile
         if (full_name !== undefined) user.full_name = full_name;
         if (sport !== undefined) user.sporting = sport;
 
         await user.save();
+
+        if(req.files){
+            const protocol = req.protocol;
+            const host = req.get('host');
+            user.profileImage=protocol + '://'+ host + '/' + user.profileImage.split(path.sep).join('/')
+        }
 
         return res.status(200).json({
             code: 200,
@@ -376,6 +403,7 @@ async function editProfile(req, res){
             data: {
                 full_name: user.full_name,
                 sport: user.sporting,
+                profileImage: user.profileImage
             },
         });
     } catch (e) {
@@ -388,4 +416,85 @@ async function editProfile(req, res){
     }
 }
 
-module.exports = {forgotPassword, verifyOTP, resetPassword, resendOTP, editProfile}
+async function enablePushNotifications(req, res){
+    const userSlug = req.user.slug;
+    try{
+        const user = await User.findOne({where: {slug: userSlug}})
+        if(!user){
+            return res.status(404).json({
+                code: 404,
+                message: "User not found",
+                data: []
+            })
+        }
+        if(user.push_notifications==true){
+            return res.status(400).json({
+                code: 400,
+                message: "Push notifications already enabled",
+                data: []
+            })
+        }
+        user.push_notifications=true;
+        await user.save();
+
+        return res.status(200).json({
+            code:200,
+            message: "Push notifications enabled",
+            data: []
+        })
+
+    }
+    catch(e){
+        console.log(e)
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: []
+        })
+
+    }
+}
+
+async function disablePushNotifications(req, res){
+    const userSlug = req.user.slug;
+    try{
+        const user = await User.findOne({where: {slug: userSlug}})
+        if(!user){
+            return res.status(404).json({
+                code: 404,
+                message: "User not found",
+                data: []
+            })
+        }
+        if(user.push_notifications==false){
+            return res.status(400).json({
+                code: 400,
+                message: "Push notifications already disabled",
+                data: []
+            })
+        }
+        user.push_notifications=false;
+        await user.save();
+
+        return res.status(200).json({
+            code:200,
+            message: "Push notifications disabled",
+            data: []
+        })
+
+    }
+    catch(e){
+        console.log(e)
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: []
+        })
+
+    }
+}
+
+
+module.exports = {forgotPassword, verifyOTP, resetPassword, resendOTP, editProfile,
+    enablePushNotifications, disablePushNotifications
+}
