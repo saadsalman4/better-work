@@ -14,7 +14,7 @@ function model(sequelize) {
             allowNull: false,
         },
         api_token: {
-            type: DataTypes.STRING,
+            type: DataTypes.STRING(1024),
             allowNull: false,
         },
         tokenType: {

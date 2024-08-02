@@ -92,6 +92,22 @@ function model(sequelize) {
             onDelete: 'CASCADE',
         });
 
+        User.hasMany(models.WorkoutSession, {
+            foreignKey: 'user_slug',
+            sourceKey: 'slug',
+            as: 'sessions',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
+        });
+
+        User.hasMany(models.WorkoutLog, {
+            foreignKey: 'user_slug',
+            sourceKey: 'slug',
+            as: 'log',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
+        });
+
         User.belongsTo(models.Role, {
             foreignKey: 'role',
             targetKey: 'role',

@@ -16,6 +16,7 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 const athleteAuthRoutes = require('./routes/athlete_auth.routes')
 const athleteAccountRoutes = require('./routes/athlete_account.routes')
 const postsWorkoutRoutes = require('./routes/posts_workouts.routes')
+const workoutProgressRoutes = require('./routes/workout_progress.routes')
 
 app.use(express.json())
 
@@ -23,6 +24,7 @@ app.use(express.json())
 app.use('/api/athlete', athleteAuthRoutes)
 app.use('/api/athlete/account', athleteAccountRoutes)
 app.use('/api/postsworkouts', postsWorkoutRoutes)
+app.use('/api/progress', workoutProgressRoutes)
 
 
 

@@ -215,8 +215,11 @@ async function login (req, res){
 	            message: "OTP not verified",
                 data: []
             }); 
+            
         }
-        const token = jwt.sign({ slug: user.slug, full_name: user.full_name, email: user.email }, process.env.SECRET_KEY, { expiresIn: '1h' });
+        
+
+        const token = jwt.sign({ slug: user.slug, full_name: user.full_name, createdAt: user.createdAt }, process.env.SECRET_KEY, { expiresIn: '1h' });
 
         const currentKey = await User_keys.findOne({
             where: {
