@@ -92,6 +92,15 @@ async function checkOut(req, res) {
 
         const checkInTime = new Date(activeSession.check_in);
 
+        // Check if the check-out time is before the check-in time
+        if (checkOutTime < checkInTime) {
+            return res.status(400).json({
+                code: 400,
+                message: 'Check-out time cannot be earlier than check-in time.',
+                data: [],
+            });
+        }
+
         // Calculate duration in hours
         const duration = (checkOutTime - checkInTime) / (1000 * 60 * 60);
 
@@ -438,7 +447,7 @@ async function getYearlyData(req, res) {
             attributes: ['date', 'hours'],
         });
 
-        console.log(workoutLogs)
+ 
 
         // Initialize an object to hold the total hours per month
         const monthlyData = {};
