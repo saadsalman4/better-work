@@ -5,7 +5,8 @@ const moment = require('moment')
 
 async function checkIn(req, res) {
     const { slug } = req.user; // Extract user slug from authenticated user
-    const user_slug = slug
+    const user_slug = slug;
+    const { localTime } = req.body; // Expect localTime in ISO format, e.g., '2024-08-05T10:30:00'
 
     try {
         // Check if there's an ongoing session for this user
@@ -21,14 +22,24 @@ async function checkIn(req, res) {
             return res.status(400).json({
                 code: 400,
                 message: 'You are already checked in. Please check out before checking in again.',
-                data: []
+                data: [],
             });
         }
 
-        // Create a new workout session
+        // Parse localTime into a Date object
+        const localDateTime = new Date(localTime);
+        if (isNaN(localDateTime.getTime())) {
+            return res.status(400).json({
+                code: 400,
+                message: 'Invalid local time format.',
+                data: [],
+            });
+        }
+
+        // Create a new workout session with the provided local time
         const newSession = await WorkoutSession.create({
             user_slug,
-            check_in: new Date(),
+            check_in: localDateTime.toISOString(),
         });
 
         return res.status(200).json({
@@ -37,9 +48,8 @@ async function checkIn(req, res) {
             data: {
                 slug: newSession.slug,
                 check_in: newSession.check_in,
-            }
+            },
         });
-
     } catch (error) {
         console.error(error);
         return res.status(500).json({
@@ -51,11 +61,14 @@ async function checkIn(req, res) {
 }
 
 async function checkOut(req, res) {
+    const { slug } = req.user; // Extract user slug from authenticated user
+    const { localTime } = req.body; // Expect localTime in ISO format, e.g., '2024-08-05T10:30:00'
+
     try {
         // Find the active session for the user
         const activeSession = await WorkoutSession.findOne({
             where: {
-                user_slug: req.user.slug,
+                user_slug: slug,
                 check_out: null,
             },
         });
@@ -67,7 +80,16 @@ async function checkOut(req, res) {
             });
         }
 
-        const checkOutTime = new Date();
+        // Parse localTime into a Date object
+        const checkOutTime = new Date(localTime);
+        if (isNaN(checkOutTime.getTime())) {
+            return res.status(400).json({
+                code: 400,
+                message: 'Invalid local time format.',
+                data: [],
+            });
+        }
+
         const checkInTime = new Date(activeSession.check_in);
 
         // Calculate duration in hours
@@ -75,7 +97,7 @@ async function checkOut(req, res) {
 
         // Update session with check-out time and duration
         await activeSession.update({
-            check_out: checkOutTime,
+            check_out: checkOutTime.toISOString(),
             duration,
         });
 
@@ -85,7 +107,7 @@ async function checkOut(req, res) {
         if (checkInDate === checkOutDate) {
             // If check-in and check-out are on the same day
             await WorkoutLog.create({
-                user_slug: req.user.slug,
+                user_slug: slug,
                 date: checkInDate,
                 hours: duration,
             });
@@ -112,7 +134,7 @@ async function checkOut(req, res) {
 
                 // Log the workout for the current date
                 await WorkoutLog.create({
-                    user_slug: req.user.slug,
+                    user_slug: slug,
                     date: currentDate.toISOString().split('T')[0],
                     hours: hoursWorked,
                 });
@@ -280,44 +302,44 @@ async function getUserProgress(req, res){
     }
 }
 
-async function getWeeklyData( req, res){
+async function getWeeklyData(req, res) {
     try {
-        const weekNumber = parseInt(req.params.weekNumber, 10);
+        // Extract the start date from the request parameters
+        const { startDate } = req.params;
         const userSlug = req.user.slug;
 
+        // Parse the provided start date
+        const startDateObj = new Date(startDate);
 
-
-        const createdAtDate = new Date(req.user.createdAt);
-
-        // Calculate the start date of the specified week
-        const startDate = new Date(createdAtDate);
-        startDate.setDate(startDate.getDate() + (weekNumber - 1) * 7);
-
-        // Calculate the end date of the specified week
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 6);
+        // Calculate the end date (7 days from start date)
+        const endDateObj = new Date(startDateObj);
+        endDateObj.setDate(startDateObj.getDate() + 6);
 
         // Fetch workout logs for the user within the specified date range
         const workoutLogs = await WorkoutLog.findAll({
             where: {
                 user_slug: userSlug,
                 date: {
-                    [Op.between]: [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]],
+                    [Op.between]: [startDateObj.toISOString().split('T')[0], endDateObj.toISOString().split('T')[0]],
                 },
             },
         });
 
-        // Prepare the response data
+        // Prepare the response data with weekday names
         const weeklyData = {};
+        const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
         for (let i = 0; i < 7; i++) {
-            const currentDate = new Date(startDate);
-            currentDate.setDate(currentDate.getDate() + i);
-            const dateString = currentDate.toISOString().split('T')[0];
-            weeklyData[dateString] = 0;
+            const currentDate = new Date(startDateObj);
+            currentDate.setDate(startDateObj.getDate() + i);
+            const weekdayName = weekdays[currentDate.getDay()];
+            weeklyData[weekdayName] = 0;
         }
 
         workoutLogs.forEach(log => {
-            weeklyData[log.date] = log.hours;
+            const logDate = new Date(log.date);
+            const weekdayName = weekdays[logDate.getDay()];
+            weeklyData[weekdayName] = (weeklyData[weekdayName] || 0) + log.hours;
         });
 
         return res.status(200).json({
@@ -337,12 +359,11 @@ async function getWeeklyData( req, res){
 
 async function getMonthlyData(req, res) {
     try {
-        const monthNumber = parseInt(req.params.monthNumber, 10);
+        const { date } = req.params; // Get the full date (YYYY-MM-DD) from params
         const userSlug = req.user.slug;
-        const year = new Date().getFullYear(); // Assuming current year or customize as needed
 
-        // Calculate the start and end dates for the specified month
-        const startDate = moment(`${year}-${monthNumber}-01`).startOf('month').format('YYYY-MM-DD');
+        // Parse the provided date to extract the year and month
+        const startDate = moment(date, 'YYYY-MM-DD').startOf('month').format('YYYY-MM-DD');
         const endDate = moment(startDate).endOf('month').format('YYYY-MM-DD');
 
         // Fetch workout logs for the user within the specified date range
@@ -353,16 +374,23 @@ async function getMonthlyData(req, res) {
                     [Op.between]: [startDate, endDate],
                 },
             },
-            attributes: ['date'], // Only retrieve the date field
+            attributes: ['date', 'hours'], // Retrieve date and hours fields
         });
 
-        // Extract unique workout dates
-        const uniqueDates = [...new Set(workoutLogs.map(log => log.date))];
+        // Aggregate total hours worked out per day
+        const dailyTotals = workoutLogs.reduce((acc, log) => {
+            if (acc[log.date]) {
+                acc[log.date] += log.hours;
+            } else {
+                acc[log.date] = log.hours;
+            }
+            return acc;
+        }, {});
 
         return res.status(200).json({
             code: 200,
             message: 'Monthly data retrieved successfully',
-            data: uniqueDates,
+            data: dailyTotals,
         });
     } catch (error) {
         console.error(error);
@@ -376,8 +404,24 @@ async function getMonthlyData(req, res) {
 
 async function getYearlyData(req, res) {
     try {
-        const yearNumber = parseInt(req.params.yearNumber, 10);
+        const yearNumber = parseInt(req.params.year, 10); // Get the year from params
         const userSlug = req.user.slug;
+
+        // Define an object to map month numbers to month names
+        const monthNames = {
+            1: "January",
+            2: "February",
+            3: "March",
+            4: "April",
+            5: "May",
+            6: "June",
+            7: "July",
+            8: "August",
+            9: "September",
+            10: "October",
+            11: "November",
+            12: "December"
+        };
 
         // Calculate the start and end dates for the specified year
         const startDate = `${yearNumber}-01-01`;
@@ -394,25 +438,25 @@ async function getYearlyData(req, res) {
             attributes: ['date', 'hours'],
         });
 
-        // Initialize an array to store total hours per month
-        const monthlyHours = Array(12).fill(0);
+        console.log(workoutLogs)
 
-        // Calculate total hours for each month
-        workoutLogs.forEach(log => {
-            const month = new Date(log.date).getMonth(); // Get month index (0-11)
-            monthlyHours[month] += log.hours;
+        // Initialize an object to hold the total hours per month
+        const monthlyData = {};
+        Object.keys(monthNames).forEach(month => {
+            monthlyData[monthNames[month]] = 0;
         });
 
-        // Prepare the response data
-        const responseData = monthlyHours.map((hours, index) => ({
-            month: index + 1, // 1-based month index
-            hours: parseFloat(hours.toFixed(2)) // Format hours to 2 decimal places
-        }));
+        // Aggregate total hours per month
+        workoutLogs.forEach(log => {
+            const logMonth = new Date(log.date).getMonth() + 1; // Month is 0-indexed
+            const monthName = monthNames[logMonth];
+            monthlyData[monthName] += log.hours;
+        });
 
         return res.status(200).json({
             code: 200,
             message: 'Yearly data retrieved successfully',
-            data: responseData,
+            data: monthlyData,
         });
     } catch (error) {
         console.error(error);

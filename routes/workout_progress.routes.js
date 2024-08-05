@@ -12,9 +12,9 @@ router.patch('/check-out', userAuth, checkOut)
 router.get('/current-session', userAuth, getCurrentSessionDuration)
 router.get('/total-duration', userAuth, getTotalDuration)
 router.get('/user', userAuth, getUserProgress)
-router.get('/weekly/:weekNumber', userAuth, getWeeklyData)
-router.get('/monthly/:monthNumber', userAuth, getMonthlyData)
-router.get('/yearly/:yearNumber', userAuth, getYearlyData)
+router.get('/weekly/:startDate', userAuth, getWeeklyData)
+router.get('/monthly/:date', userAuth, getMonthlyData)
+router.get('/yearly/:year', userAuth, getYearlyData)
 
 
 module.exports = router;
