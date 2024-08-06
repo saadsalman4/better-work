@@ -1,6 +1,7 @@
 const { Op } = require('sequelize')
 const {WorkoutSession, WorkoutLog} = require('../connect')
-const moment = require('moment')
+const moment = require('moment');
+const { PostType } = require('../utils/constants');
 
 
 async function checkIn(req, res) {
@@ -476,6 +477,8 @@ async function getYearlyData(req, res) {
         });
     }
 }
+
+
 
 module.exports = {checkIn, checkOut, getCurrentSessionDuration, 
     getTotalDuration, getUserProgress, getWeeklyData, getMonthlyData, getYearlyData}

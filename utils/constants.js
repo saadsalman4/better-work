@@ -22,7 +22,8 @@ const TokenType = {
 const PostType = {
     POST: 'post',
     WORKOUT: 'workout',
-    TEMPLATE: 'template'
+    TEMPLATE: 'template',
+    SHARE: 'share'
 }
 
 

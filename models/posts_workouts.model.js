@@ -37,6 +37,18 @@ function model(sequelize) {
             type: DataTypes.FLOAT,
             defaultValue: 0
         },
+        shared_from: {
+            type: DataTypes.UUID,
+            allowNull: true,
+            references: {
+                model: 'posts_workouts', // Self-referential relationship
+                key: 'slug',
+            },
+        },
+        sharer_caption: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
     }, {
         hooks: {
             beforeCreate: (user_key, options) => {
@@ -62,6 +74,14 @@ function model(sequelize) {
             foreignKey: 'user_slug',
             sourceKey: 'slug',
             as: 'user'
+        });
+
+        Posts_Workouts.belongsTo(models.Posts_Workouts, {
+            foreignKey: 'shared_from',
+            as: 'originalPost',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
+            
         });
     };
 

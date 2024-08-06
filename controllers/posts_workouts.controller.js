@@ -965,7 +965,67 @@ async function deleteTemplate(req, res) {
     }
 }
 
+async function sharePost(req, res){
+    try{
+        const { originalPostSlug } = req.params; // Original post's slug
+        const { sharerCaption } = req.body; // Caption added by the sharer
+        const sharerUserSlug = req.user.slug; // Slug of the user sharing the post
+
+        const originalPost = await Posts_Workouts.findOne({
+            where: { slug: originalPostSlug, type: PostType.POST }
+        });
+
+        if (!originalPost) {
+            return res.status(404).json({
+                code: 404,
+                message: 'Original post not found.',
+                data: [],
+            });
+        }
+
+        if(originalPost.user_slug == sharerUserSlug){
+            return res.status(400).json({
+                code: 400,
+                message: "Cannot share own post",
+
+                data: []
+            })
+        }
+
+        const sharedPost = await Posts_Workouts.create({
+            type: PostType.SHARE,
+            title: originalPost.title, // New title or original title
+            media: originalPost.media, // Keep the same media
+            price: originalPost.price,
+            user_slug: sharerUserSlug, // Slug of the sharer
+            shared_from: originalPost.slug, // Slug of the original post
+            sharer_caption: sharerCaption || null
+
+        });
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+        sharedPost.media=protocol + '://'+ host + '/' + sharedPost.media.split(path.sep).join('/')
+
+        return res.status(201).json({
+            code: 201,
+            message: 'Post shared successfully',
+            data: sharedPost,
+        });
+
+    }
+    catch(e){
+        console.error(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: [],
+        });
+    }
+}
+
+
 module.exports = {createPost, createWorkout, createTemplate, updatePost, updateWorkout, updateTemplate,
     viewAll, viewPosts, viewWorkouts, viewTemplates, workoutView, postView, templateView, deletePost,
-    deleteWorkout, deleteTemplate
+    deleteWorkout, deleteTemplate, sharePost
  }

@@ -3,7 +3,8 @@ const { userAuth } = require('../middlewares/authCheck');
 const {createPost, createWorkout, createTemplate, updatePost, 
     updateWorkout, updateTemplate, viewAll, viewPosts, 
     viewWorkouts, viewTemplates, workoutView, postView, templateView,
-    deletePost, deleteWorkout, deleteTemplate} = require('../controllers/posts_workouts.controller')
+    deletePost, deleteWorkout, deleteTemplate,
+    sharePost} = require('../controllers/posts_workouts.controller');
 
 const router = express.Router();
 
@@ -28,5 +29,6 @@ router.delete('/delete-post/:slug', userAuth, deletePost)
 router.delete('/delete-workout/:slug', userAuth, deleteWorkout)
 router.delete('/delete-template/:slug', userAuth, deleteTemplate)
 
+router.post('/share-post/:originalPostSlug', userAuth, sharePost)
 
 module.exports = router;
