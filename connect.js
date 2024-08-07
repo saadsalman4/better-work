@@ -15,6 +15,7 @@ const templateExercises = require('./models/template_exercise.model')(sequelize)
 const workoutExercise = require('./models/workout_exercise.model')(sequelize)
 const WorkoutSession = require('./models/workout_sessions.model')(sequelize)
 const WorkoutLog = require('./models/workout_log.model')(sequelize)
+const Relationship = require('./models/relationship.model')(sequelize)
 
 const db = {
   sequelize,
@@ -27,7 +28,8 @@ const db = {
   templateExercises,
   workoutExercise,
   WorkoutSession,
-  WorkoutLog
+  WorkoutLog,
+  Relationship
 };
 
 Object.keys(db).forEach(modelName => {
