@@ -158,4 +158,50 @@ async function getFollowers(req, res) {
     }
 }
 
-module.exports = {followUser, unfollowUser, getFollowers}
+async function getFollowing(req, res) {
+    try {
+        const userSlug = req.user.slug;
+
+        const following = await Relationship.findAll({
+            where: {
+                follower_id: userSlug,
+                is_deleted: false
+            },
+            include: [
+                {
+                    model: User,
+                    as: 'followed',
+                    attributes: ['slug', 'full_name', 'profileImage']
+                }
+            ],
+            attributes: ['slug']
+        });
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+
+        const followingData = following.map(follow => ({
+            slug: follow.slug,
+            followed: {
+                slug: follow.followed.slug,
+                name: follow.followed.full_name,
+                profileImage: follow.followed.profileImage ? `${protocol}://${host}/${follow.followed.profileImage.split(path.sep).join('/')}` : null
+            }
+        }));
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Following list retrieved successfully',
+            data: followingData
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            code: 500,
+            message: 'Server error',
+            data: error.message
+        });
+    }
+}
+
+module.exports = {followUser, unfollowUser, getFollowers, getFollowing}

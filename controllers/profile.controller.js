@@ -1,5 +1,5 @@
 const { UserRole, OTPType, TokenType, PostType } = require('../utils/constants');
-const { sequelize, User, Posts_Workouts } = require('../connect');
+const { sequelize, User, Posts_Workouts, Relationship } = require('../connect');
 const path = require('path')
 
 
@@ -149,4 +149,66 @@ async function myShares (req, res){
     }
 }
 
-module.exports = {myPosts, myWorkouts, myShares}
+async function myFollowersCount(req, res){
+    try{
+        const userSlug = req.user.slug
+
+        const followers = await Relationship.findAll({
+            where: {
+                followed_id: userSlug,
+                is_deleted: false
+            }
+        });
+        const followersCount = followers.length
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Follower count retrieved successfully',
+            data : {
+                followerCount: followersCount
+            }
+        })
+    }
+    catch(e){
+        console.log(e)
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: []
+        })
+
+    }
+}
+
+async function myFollowingCount (req, res){
+    try{
+        const userSlug = req.user.slug
+
+        const following = await Relationship.findAll({
+            where: {
+                follower_id: userSlug,
+                is_deleted: false
+            }
+        });
+        const followingCount = following.length
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Following count retrieved successfully',
+            data : {
+                followingCount: followingCount
+            }
+        })
+    }
+    catch(e){
+        console.log(e)
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: []
+        })
+
+    }
+}
+
+module.exports = {myPosts, myWorkouts, myShares, myFollowersCount, myFollowingCount}
