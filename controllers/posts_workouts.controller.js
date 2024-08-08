@@ -5,6 +5,7 @@ const {postSchema, workoutSchema, templateSchema} = require('../utils/inputSchem
 const { PostType } = require('../utils/constants');
 const path = require ('path')
 const fs = require('fs')
+const Sequelize = require('sequelize');
 
 
 async function createPost(req, res){
@@ -1135,7 +1136,21 @@ async function viewFollowingPosts(req, res) {
                 },
                 type: PostType.POST
             },
-            attributes: ['slug', 'title', 'media', 'price', 'type', 'user_slug'],
+            attributes: {
+                include: [
+                    'slug', 'title', 'media', 'price', 'type', 'user_slug',
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Likes AS likesAlias
+                            WHERE
+                                likesAlias.post_slug = Posts_Workouts.slug
+                                AND likesAlias.is_deleted = false
+                        )`),
+                        'likeCount'
+                    ]
+                ]
+            },
             include: [{
                 model: User,
                 as: 'user',
@@ -1148,17 +1163,22 @@ async function viewFollowingPosts(req, res) {
         const protocol = req.protocol;
         const host = req.get('host');
 
-        // Map over the results to prepend the full URL to the media and profileImage fields and add user details
+        // Map over the results to select only the required attributes and format URLs
         const postsWithUserDetails = posts.map(item => {
             const mediaUrl = item.media ? `${protocol}://${host}/${item.media.split(path.sep).join('/')}` : null;
             const profileImageUrl = item.user.profileImage ? `${protocol}://${host}/${item.user.profileImage.split(path.sep).join('/')}` : null;
             return {
-                ...item.toJSON(),
+                slug: item.slug,
+                title: item.title,
                 media: mediaUrl,
+                price: item.price,
+                type: item.type,
+                user_slug: item.user_slug,
+                likeCount: item.dataValues.likeCount,
                 user: {
-                    ...item.user.toJSON(),
+                    full_name: item.user.full_name,
                     profileImage: profileImageUrl,
-                },
+                }
             };
         });
 
@@ -1221,12 +1241,29 @@ async function viewForYouPosts(req, res) {
                 },
                 type: PostType.POST
             },
-            attributes: ['slug', 'title', 'media', 'price', 'type', 'user_slug'],
+            attributes: {
+                include: [
+                    'slug', 'title', 'media', 'price', 'type', 'user_slug',
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Likes AS likesAlias
+                            WHERE
+                                likesAlias.post_slug = Posts_Workouts.slug
+                                AND likesAlias.is_deleted = false
+                        )`),
+                        'likeCount'
+                    ]
+                ]
+            },
             include: [{
                 model: User,
                 as: 'user',
                 attributes: ['full_name', 'profileImage']
             }],
+            order: [
+                [Sequelize.literal('likeCount'), 'DESC']
+            ],
             offset,
             limit: parseInt(limit, 10),
         });
@@ -1239,12 +1276,17 @@ async function viewForYouPosts(req, res) {
             const mediaUrl = item.media ? `${protocol}://${host}/${item.media.split(path.sep).join('/')}` : null;
             const profileImageUrl = item.user.profileImage ? `${protocol}://${host}/${item.user.profileImage.split(path.sep).join('/')}` : null;
             return {
-                ...item.toJSON(),
+                slug: item.slug,
+                title: item.title,
                 media: mediaUrl,
+                price: item.price,
+                type: item.type,
+                user_slug: item.user_slug,
+                likeCount: item.dataValues.likeCount,
                 user: {
-                    ...item.user.toJSON(),
+                    full_name: item.user.full_name,
                     profileImage: profileImageUrl,
-                },
+                }
             };
         });
 
@@ -1269,6 +1311,7 @@ async function viewForYouPosts(req, res) {
         });
     }
 }
+
 
 module.exports = {createPost, createWorkout, createTemplate, updatePost, updateWorkout, updateTemplate,
     viewAll, viewPosts, viewWorkouts, viewTemplates, workoutView, postView, templateView, deletePost,
