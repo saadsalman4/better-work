@@ -1,4 +1,4 @@
-const { sequelize, User, Posts_Workouts, Sections, workoutExercise, templateExercises } = require('../connect');
+const { sequelize, User, Posts_Workouts, Sections, workoutExercise, templateExercises, Relationship } = require('../connect');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const {postSchema, workoutSchema, templateSchema} = require('../utils/inputSchemas');
@@ -565,7 +565,13 @@ async function viewAll(req, res) {
         return res.status(200).json({
             code: 200,
             message: "All items retrieved successfully",
-            data: allWithFullMediaUrls
+            data: allWithFullMediaUrls,
+            pagination: {
+                totalItems: count,
+                currentPage: parseInt(page, 10),
+                totalPages: Math.ceil(count / limit),
+                pageSize: parseInt(limit, 10),
+            },
         });
     } catch (e) {
         console.log(e);
@@ -613,7 +619,13 @@ async function viewPosts(req, res){
         return res.status(200).json({
             code: 200,
             message: "All posts retrieved successfully",
-            data: allWithFullMediaUrls
+            data: allWithFullMediaUrls,
+            pagination: {
+                totalItems: count,
+                currentPage: parseInt(page, 10),
+                totalPages: Math.ceil(count / limit),
+                pageSize: parseInt(limit, 10),
+            },
         })
     }
     catch(e){
@@ -663,7 +675,13 @@ async function viewWorkouts(req, res){
         return res.status(200).json({
             code: 200,
             message: "All workouts retrieved successfully",
-            data: allWithFullMediaUrls
+            data: allWithFullMediaUrls,
+            pagination: {
+                totalItems: count,
+                currentPage: parseInt(page, 10),
+                totalPages: Math.ceil(count / limit),
+                pageSize: parseInt(limit, 10),
+            },
         })
     }
     catch(e){
@@ -701,7 +719,13 @@ async function viewTemplates(req, res){
         return res.status(200).json({
             code: 200,
             message: "All templates retrieved successfully",
-            data: all
+            data: all,
+            pagination: {
+                totalItems: count,
+                currentPage: parseInt(page, 10),
+                totalPages: Math.ceil(count / limit),
+                pageSize: parseInt(limit, 10),
+            },
         })
     }
     catch(e){
@@ -1088,8 +1112,165 @@ async function sharePost(req, res){
     }
 }
 
+async function viewFollowingPosts(req, res) {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+        const userSlug = req.user.slug;
+
+        const followedUsers = await Relationship.findAll({
+            where: {
+                follower_id: userSlug,
+                is_deleted: false
+            },
+            attributes: ['followed_id']
+        });
+
+        const followedUsersSlug = followedUsers.map(rel => rel.followed_id);
+
+        const { count, rows: posts } = await Posts_Workouts.findAndCountAll({
+            where: {
+                user_slug: {
+                    [Op.in]: followedUsersSlug
+                },
+                type: PostType.POST
+            },
+            attributes: ['slug', 'title', 'media', 'price', 'type', 'user_slug'],
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['full_name', 'profileImage']
+            }],
+            offset,
+            limit: parseInt(limit, 10),
+        });
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+
+        // Map over the results to prepend the full URL to the media and profileImage fields and add user details
+        const postsWithUserDetails = posts.map(item => {
+            const mediaUrl = item.media ? `${protocol}://${host}/${item.media.split(path.sep).join('/')}` : null;
+            const profileImageUrl = item.user.profileImage ? `${protocol}://${host}/${item.user.profileImage.split(path.sep).join('/')}` : null;
+            return {
+                ...item.toJSON(),
+                media: mediaUrl,
+                user: {
+                    ...item.user.toJSON(),
+                    profileImage: profileImageUrl,
+                },
+            };
+        });
+
+        return res.status(200).json({
+            code: 200,
+            message: "All followed users' posts retrieved successfully",
+            data: postsWithUserDetails,
+            pagination: {
+                totalItems: count,
+                currentPage: parseInt(page, 10),
+                totalPages: Math.ceil(count / limit),
+                pageSize: parseInt(limit, 10),
+            },
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: [],
+        });
+    }
+}
+
+async function viewForYouPosts(req, res) {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+        const userId = req.user.slug;
+
+        const loggedInUser = await User.findOne({
+            where: { slug: userId },
+            attributes: ['sporting']
+        });
+
+        if (!loggedInUser) {
+            return res.status(404).json({
+                code: 404,
+                message: "User not found",
+                data: []
+            });
+        }
+
+        const sportingValue = loggedInUser.sporting;
+
+        const usersWithSameSporting = await User.findAll({
+            where: {
+                sporting: sportingValue,
+                slug: { [Op.ne]: userId }
+            },
+            attributes: ['slug']
+        });
+
+        const userSlugs = usersWithSameSporting.map(user => user.slug);
+
+        const { count, rows: posts } = await Posts_Workouts.findAndCountAll({
+            where: {
+                user_slug: {
+                    [Op.in]: userSlugs
+                },
+                type: PostType.POST
+            },
+            attributes: ['slug', 'title', 'media', 'price', 'type', 'user_slug'],
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['full_name', 'profileImage']
+            }],
+            offset,
+            limit: parseInt(limit, 10),
+        });
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+
+        // Map over the results to prepend the full URL to the media and profileImage fields and add user details
+        const postsWithUserDetails = posts.map(item => {
+            const mediaUrl = item.media ? `${protocol}://${host}/${item.media.split(path.sep).join('/')}` : null;
+            const profileImageUrl = item.user.profileImage ? `${protocol}://${host}/${item.user.profileImage.split(path.sep).join('/')}` : null;
+            return {
+                ...item.toJSON(),
+                media: mediaUrl,
+                user: {
+                    ...item.user.toJSON(),
+                    profileImage: profileImageUrl,
+                },
+            };
+        });
+
+        return res.status(200).json({
+            code: 200,
+            message: "For You posts retrieved successfully",
+            data: postsWithUserDetails,
+            pagination: {
+                totalItems: count,
+                currentPage: parseInt(page, 10),
+                totalPages: Math.ceil(count / limit),
+                pageSize: parseInt(limit, 10),
+            },
+        });
+
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: [],
+        });
+    }
+}
 
 module.exports = {createPost, createWorkout, createTemplate, updatePost, updateWorkout, updateTemplate,
     viewAll, viewPosts, viewWorkouts, viewTemplates, workoutView, postView, templateView, deletePost,
-    deleteWorkout, deleteTemplate, sharePost
+    deleteWorkout, deleteTemplate, sharePost, viewFollowingPosts, viewForYouPosts
  }

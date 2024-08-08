@@ -211,4 +211,53 @@ async function myFollowingCount (req, res){
     }
 }
 
-module.exports = {myPosts, myWorkouts, myShares, myFollowersCount, myFollowingCount}
+async function myProfile(req, res){
+    try{
+        const userId = req.user.slug;
+
+        const user = await User.findOne({
+            where: { slug: userId },
+            attributes: ['full_name', 'profileImage', 'email']
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                code: 404,
+                message: "User not found",
+                data: []
+            });
+        }
+
+        const [followerCountResult, followingCountResult] = await Promise.all([
+            Relationship.count({
+                where: { followed_id: userId, is_deleted: false }
+            }),
+            Relationship.count({
+                where: { follower_id: userId, is_deleted: false }
+            })
+        ]);
+
+        return res.status(200).json({
+            code: 200,
+            message: "User profile retrieved successfully",
+            data: {
+                full_name: user.full_name,
+                profileImage: user.profileImage ? `${req.protocol}://${req.get('host')}/${user.profileImage.split(path.sep).join('/')}` : null,
+                email: user.email,
+                numberOfFollowers: followerCountResult,
+                numberOfFollowing: followingCountResult,
+            }
+        });
+
+    }
+    catch(e){
+        console.log(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: [],
+        });
+    }
+}
+
+module.exports = {myPosts, myWorkouts, myShares, myFollowersCount, myFollowingCount, myProfile}
