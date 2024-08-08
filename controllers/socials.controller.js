@@ -1,5 +1,6 @@
-const { sequelize, Relationship, User } = require('../connect');
-const path = require('path')
+const { sequelize, Relationship, User, Likes, Posts_Workouts } = require('../connect');
+const path = require('path');
+const { PostType } = require('../utils/constants');
 
 
 async function followUser(req, res){
@@ -202,4 +203,96 @@ async function getFollowing(req, res) {
     }
 }
 
-module.exports = {followUser, unfollowUser, getFollowers, getFollowing}
+async function likePost(req, res){
+    try{
+        const userSlug = req.user.slug;
+        const { postSlug } = req.params;
+
+        const existingLike = await Likes.findOne({
+            where: { user_slug: userSlug, post_slug: postSlug, is_deleted: false }
+        });
+
+        if(existingLike){
+            return res.status(400).json({
+                code: 400,
+                message: "Already liked this post",
+                data: []
+            });
+        }
+
+        const post = await Posts_Workouts.findOne({
+            where:{
+                slug: postSlug,
+                type: PostType.POST
+            }
+        })
+
+        if(!post){
+            return res.status(404).json({
+                code: 404,
+                message: "Post not found!",
+                data: []
+            })
+        }
+
+        await Likes.create({
+            user_slug: userSlug,
+            post_slug: postSlug
+        });
+
+        return res.status(200).json({
+            code: 200,
+            message: "Post liked successfully",
+            data: []
+        });
+
+    }
+    catch(e){
+        console.log(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: []
+        });
+
+    }
+}
+
+async function removeLike(req, res){
+    try{
+        const userSlug = req.user.slug;
+        const { postSlug } = req.params;
+
+        const like = await Likes.findOne({
+            where: { user_slug: userSlug, post_slug: postSlug, is_deleted: false }
+        });
+
+        if (!like) {
+            return res.status(400).json({
+                code: 400,
+                message: "Like not found",
+                data: []
+            });
+        }
+
+        await like.update({ is_deleted: true });
+
+        return res.status(200).json({
+            code: 200,
+            message: "Like removed successfully",
+            data: []
+        });
+
+
+    }
+    catch(e){
+        console.log(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: []
+        });
+    }
+}
+
+module.exports = {followUser, unfollowUser, getFollowers, getFollowing, likePost, removeLike}
