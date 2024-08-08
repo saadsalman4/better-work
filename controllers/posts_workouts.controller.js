@@ -1148,6 +1148,17 @@ async function viewFollowingPosts(req, res) {
                                 AND likesAlias.is_deleted = false
                         )`),
                         'likeCount'
+                    ],
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Likes AS likesAlias
+                            WHERE
+                                likesAlias.post_slug = Posts_Workouts.slug
+                                AND likesAlias.user_slug = '${userSlug}'
+                                AND likesAlias.is_deleted = false
+                        )`),
+                        'hasLiked'
                     ]
                 ]
             },
@@ -1163,7 +1174,7 @@ async function viewFollowingPosts(req, res) {
         const protocol = req.protocol;
         const host = req.get('host');
 
-        // Map over the results to select only the required attributes and format URLs
+        // Map over the results to select only the required attributes, format URLs, and include like info
         const postsWithUserDetails = posts.map(item => {
             const mediaUrl = item.media ? `${protocol}://${host}/${item.media.split(path.sep).join('/')}` : null;
             const profileImageUrl = item.user.profileImage ? `${protocol}://${host}/${item.user.profileImage.split(path.sep).join('/')}` : null;
@@ -1175,6 +1186,7 @@ async function viewFollowingPosts(req, res) {
                 type: item.type,
                 user_slug: item.user_slug,
                 likeCount: item.dataValues.likeCount,
+                hasLiked: item.dataValues.hasLiked > 0, // Convert to boolean
                 user: {
                     full_name: item.user.full_name,
                     profileImage: profileImageUrl,
@@ -1253,6 +1265,17 @@ async function viewForYouPosts(req, res) {
                                 AND likesAlias.is_deleted = false
                         )`),
                         'likeCount'
+                    ],
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Likes AS likesAlias
+                            WHERE
+                                likesAlias.post_slug = Posts_Workouts.slug
+                                AND likesAlias.user_slug = '${userId}'
+                                AND likesAlias.is_deleted = false
+                        )`),
+                        'hasLiked'
                     ]
                 ]
             },
@@ -1283,6 +1306,7 @@ async function viewForYouPosts(req, res) {
                 type: item.type,
                 user_slug: item.user_slug,
                 likeCount: item.dataValues.likeCount,
+                hasLiked: item.dataValues.hasLiked > 0, // Convert to boolean
                 user: {
                     full_name: item.user.full_name,
                     profileImage: profileImageUrl,
