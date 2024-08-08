@@ -367,23 +367,25 @@ async function editProfile(req, res){
         }
 
         if (req.files) {
-            const uploadedFile = req.files[0];
-            const fileName = Date.now() + '_' + uploadedFile.originalname;
-        
-            const filePath = path.join('public', fileName);
-        
-            fs.writeFile(filePath, uploadedFile.buffer, async (err) => {
-            if (err) {
-                console.error('Error saving file:', err);
-                return res.status(500).json({
-                    code: 500,
-                    message: 'An error occurred while saving the file',
-                    data: []
-                });
-            }
-            })
-            user.profileImage = filePath
+            if(req.files.length){
+                const uploadedFile = req.files[0];
+                const fileName = Date.now() + '_' + uploadedFile.originalname;
+            
+                const filePath = path.join('public', fileName);
+            
+                fs.writeFile(filePath, uploadedFile.buffer, async (err) => {
+                if (err) {
+                    console.error('Error saving file:', err);
+                    return res.status(500).json({
+                        code: 500,
+                        message: 'An error occurred while saving the file',
+                        data: []
+                    });
+                }
+                })
+                user.profileImage = filePath
           }
+        }
 
         // Update the user's profile
         if (full_name !== undefined) user.full_name = full_name;
@@ -392,10 +394,12 @@ async function editProfile(req, res){
         await user.save();
 
         if(req.files){
-            const protocol = req.protocol;
-            const host = req.get('host');
-            user.profileImage=protocol + '://'+ host + '/' + user.profileImage.split(path.sep).join('/')
+            if(req.files.length){
+                const protocol = req.protocol;
+                const host = req.get('host');
+                user.profileImage=protocol + '://'+ host + '/' + user.profileImage.split(path.sep).join('/')
         }
+    }
 
         return res.status(200).json({
             code: 200,

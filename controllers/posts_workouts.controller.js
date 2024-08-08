@@ -1,5 +1,6 @@
 const { sequelize, User, Posts_Workouts, Sections, workoutExercise, templateExercises } = require('../connect');
 const jwt = require('jsonwebtoken');
+const { Op } = require('sequelize');
 const {postSchema, workoutSchema, templateSchema} = require('../utils/inputSchemas');
 const { PostType } = require('../utils/constants');
 const path = require ('path')
@@ -170,7 +171,7 @@ async function createWorkout (req, res){
 }
 
 async function createTemplate (req, res){
-    const { templateName, sections } = req.body;
+    const { templateName, price, sections } = req.body;
     let transaction;
 
     try{
@@ -187,6 +188,7 @@ async function createTemplate (req, res){
         const newTemplate = await Posts_Workouts.create({
             type: PostType.TEMPLATE,
             title: templateName,
+            price: price || 0,
             user_slug: req.user.slug
         }, { transaction });
 
@@ -218,6 +220,7 @@ async function createTemplate (req, res){
             data: {
                 slug: newTemplate.slug,
                 templateName: newTemplate.title,
+                price: newTemplate.price,
                 sections,
                 user_slug: newTemplate.user_slug
             }
@@ -524,10 +527,27 @@ async function updateTemplate(req, res) {
 
 async function viewAll(req, res) {
     try {
+        const { page = 1, limit = 10, is_free } = req.query;
+        const offset = (page - 1) * limit;
+        const where = {};
+
+        if (is_free !== undefined) {
+            if (is_free === 'true') {
+                where.price = { [Op.eq]: 0 };
+            } else if (is_free === 'false') {
+                where.price = { [Op.gt]: 0 };
+            }
+        }
+        where.type = { [Op.ne]: PostType.SHARE }
+
         // Fetch all posts, templates, and workouts
-        const all = await Posts_Workouts.findAll({
-            attributes: ['slug', 'title', 'media', 'price', 'type', 'description']
+        const { count, rows: all } = await Posts_Workouts.findAndCountAll({
+            where,
+            attributes: ['slug', 'title', 'media', 'price', 'type', 'description'],
+            offset,
+            limit: parseInt(limit, 10),
         });
+
 
         // Get the protocol and host for constructing the full URL
         const protocol = req.protocol;
@@ -559,9 +579,24 @@ async function viewAll(req, res) {
 
 async function viewPosts(req, res){
     try{
-        const all = await Posts_Workouts.findAll({where:{type: PostType.POST},
-            attributes: ['slug', 'title', 'media', 'price', 'type']
-        })
+        const { page = 1, limit = 10, is_free } = req.query;
+        const offset = (page - 1) * limit;
+        const where = { type: PostType.POST };
+
+        if (is_free !== undefined) {
+            if (is_free === 'true') {
+                where.price = { [Op.eq]: 0 };
+            } else if (is_free === 'false') {
+                where.price = { [Op.gt]: 0 };
+            }
+        }
+
+        const { count, rows: all } = await Posts_Workouts.findAndCountAll({
+            where,
+            attributes: ['slug', 'title', 'media', 'price', 'type'],
+            offset,
+            limit: parseInt(limit, 10),
+        });
 
         const protocol = req.protocol;
         const host = req.get('host');
@@ -594,9 +629,24 @@ async function viewPosts(req, res){
 
 async function viewWorkouts(req, res){
     try{
-        const all = await Posts_Workouts.findAll({where:{type: PostType.WORKOUT},
-            attributes: ['slug', 'title', 'media', 'price', 'type']
-        })
+        const { page = 1, limit = 10, is_free } = req.query;
+        const offset = (page - 1) * limit;
+        const where = { type: PostType.WORKOUT };
+
+        if (is_free !== undefined) {
+            if (is_free === 'true') {
+                where.price = { [Op.eq]: 0 };
+            } else if (is_free === 'false') {
+                where.price = { [Op.gt]: 0 };
+            }
+        }
+
+        const { count, rows: all } = await Posts_Workouts.findAndCountAll({
+            where,
+            attributes: ['slug', 'title', 'media', 'price', 'type'],
+            offset,
+            limit: parseInt(limit, 10),
+        });
 
         const protocol = req.protocol;
         const host = req.get('host');
@@ -629,9 +679,24 @@ async function viewWorkouts(req, res){
 
 async function viewTemplates(req, res){
     try{
-        const all = await Posts_Workouts.findAll({where:{type: PostType.TEMPLATE},
-            attributes: ['slug', 'title', 'price', 'type', 'description']
-        })
+        const { page = 1, limit = 10, is_free } = req.query;
+        const offset = (page - 1) * limit;
+        const where = { type: PostType.TEMPLATE };
+
+        if (is_free !== undefined) {
+            if (is_free === 'true') {
+                where.price = { [Op.eq]: 0 };
+            } else if (is_free === 'false') {
+                where.price = { [Op.gt]: 0 };
+            }
+        }
+
+        const { count, rows: all } = await Posts_Workouts.findAndCountAll({
+            where,
+            attributes: ['slug', 'title', 'price', 'type', 'description'],
+            offset,
+            limit: parseInt(limit, 10),
+        });
 
         return res.status(200).json({
             code: 200,
@@ -996,7 +1061,6 @@ async function sharePost(req, res){
             type: PostType.SHARE,
             title: originalPost.title, // New title or original title
             media: originalPost.media, // Keep the same media
-            price: originalPost.price,
             user_slug: sharerUserSlug, // Slug of the sharer
             shared_from: originalPost.slug, // Slug of the original post
             sharer_caption: sharerCaption || null

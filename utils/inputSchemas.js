@@ -102,6 +102,7 @@ exports.templateSchema = Joi.object({
         'string.empty': 'Template name is required.',
         'any.required': 'Template name is required.',
     }),
+    price: Joi.number().optional(),
     sections: Joi.array().items(
         Joi.object({
             name: Joi.string().required().messages({

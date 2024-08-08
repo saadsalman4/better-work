@@ -1,6 +1,4 @@
-const { get } = require('http');
 const { sequelize, Relationship, User } = require('../connect');
-const { use } = require('../routes/athlete_auth.routes');
 const path = require('path')
 
 
