@@ -1,6 +1,8 @@
 const { UserRole, OTPType, TokenType, PostType } = require('../utils/constants');
 const { sequelize, User, Posts_Workouts, Relationship } = require('../connect');
 const path = require('path')
+const Sequelize = require('sequelize');
+ 
 
 
 async function myPosts(req, res){
@@ -211,16 +213,32 @@ async function myFollowingCount (req, res){
     }
 }
 
-async function myProfile(req, res){
-    try{
+async function myProfile(req, res) {
+    try {
         const userId = req.user.slug;
 
-        const user = await User.findOne({
+        const userProfile = await User.findOne({
             where: { slug: userId },
-            attributes: ['full_name', 'profileImage', 'email']
+            attributes: [
+                'full_name', 
+                'profileImage', 
+                'email',
+                [Sequelize.literal(`(
+                    SELECT COUNT(*)
+                    FROM Relationships AS followers
+                    WHERE followers.followed_id = User.slug
+                    AND followers.is_deleted = false
+                )`), 'numberOfFollowers'],
+                [Sequelize.literal(`(
+                    SELECT COUNT(*)
+                    FROM Relationships AS following
+                    WHERE following.follower_id = User.slug
+                    AND following.is_deleted = false
+                )`), 'numberOfFollowing']
+            ]
         });
 
-        if (!user) {
+        if (!userProfile) {
             return res.status(404).json({
                 code: 404,
                 message: "User not found",
@@ -228,29 +246,23 @@ async function myProfile(req, res){
             });
         }
 
-        const [followerCountResult, followingCountResult] = await Promise.all([
-            Relationship.count({
-                where: { followed_id: userId, is_deleted: false }
-            }),
-            Relationship.count({
-                where: { follower_id: userId, is_deleted: false }
-            })
-        ]);
+        const profileImageUrl = userProfile.profileImage 
+            ? `${req.protocol}://${req.get('host')}/${userProfile.profileImage.split(path.sep).join('/')}` 
+            : null;
 
         return res.status(200).json({
             code: 200,
             message: "User profile retrieved successfully",
             data: {
-                full_name: user.full_name,
-                profileImage: user.profileImage ? `${req.protocol}://${req.get('host')}/${user.profileImage.split(path.sep).join('/')}` : null,
-                email: user.email,
-                numberOfFollowers: followerCountResult,
-                numberOfFollowing: followingCountResult,
+                full_name: userProfile.full_name,
+                profileImage: profileImageUrl,
+                email: userProfile.email,
+                numberOfFollowers: userProfile.dataValues.numberOfFollowers,
+                numberOfFollowing: userProfile.dataValues.numberOfFollowing,
             }
         });
 
-    }
-    catch(e){
+    } catch (e) {
         console.log(e);
         return res.status(500).json({
             code: 500,
@@ -260,4 +272,80 @@ async function myProfile(req, res){
     }
 }
 
-module.exports = {myPosts, myWorkouts, myShares, myFollowersCount, myFollowingCount, myProfile}
+async function viewUserProfile(req, res) {
+    try {
+        const { userSlug } = req.params; // Assuming you're passing the userSlug in the URL
+        const loggedInUserSlug = req.user.slug;
+
+        const userProfile = await User.findOne({
+            where: { slug: userSlug },
+            attributes: ['full_name', 'profileImage', 'email'],
+            include: [
+                {
+                    model: Relationship,
+                    as: 'followers', // Alias for followers
+                    attributes: [],
+                    where: { followed_id: userSlug, is_deleted: false },
+                    required: false,
+                },
+                {
+                    model: Relationship,
+                    as: 'followings', // Alias for followings
+                    attributes: [],
+                    where: { follower_id: userSlug, is_deleted: false },
+                    required: false,
+                },
+                {
+                    model: Relationship,
+                    as: 'isFollowing', // Alias to check if logged-in user follows this user
+                    attributes: [],
+                    where: { follower_id: loggedInUserSlug, followed_id: userSlug, is_deleted: false },
+                    required: false,
+                }
+            ],
+            attributes: {
+                include: [
+                    [Sequelize.fn('COUNT', Sequelize.col('followers.slug')), 'numberOfFollowers'],
+                    [Sequelize.fn('COUNT', Sequelize.col('followings.slug')), 'numberOfFollowing'],
+                    [Sequelize.literal(`COUNT(CASE WHEN "isFollowing"."slug" IS NOT NULL THEN 1 END)`), 'isFollowing'],
+                ]
+            },
+            group: ['User.slug']
+        });
+
+        if (!userProfile) {
+            return res.status(404).json({
+                code: 404,
+                message: "User not found",
+                data: []
+            });
+        }
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const profileImageUrl = userProfile.profileImage ? `${protocol}://${host}/${userProfile.profileImage.split(path.sep).join('/')}` : null;
+
+        return res.status(200).json({
+            code: 200,
+            message: "User profile retrieved successfully",
+            data: {
+                full_name: userProfile.full_name,
+                profileImage: profileImageUrl,
+                email: userProfile.email,
+                numberOfFollowers: userProfile.dataValues.numberOfFollowers || 0,
+                numberOfFollowing: userProfile.dataValues.numberOfFollowing || 0,
+                isFollowing: userProfile.dataValues.isFollowing > 0,
+            }
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: [],
+        });
+    }
+}
+
+
+module.exports = {myPosts, myWorkouts, myShares, myFollowersCount, myFollowingCount, myProfile, viewUserProfile}

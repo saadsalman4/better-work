@@ -1119,20 +1119,15 @@ async function viewFollowingPosts(req, res) {
         const offset = (page - 1) * limit;
         const userSlug = req.user.slug;
 
-        const followedUsers = await Relationship.findAll({
-            where: {
-                follower_id: userSlug,
-                is_deleted: false
-            },
-            attributes: ['followed_id']
-        });
-
-        const followedUsersSlug = followedUsers.map(rel => rel.followed_id);
-
         const { count, rows: posts } = await Posts_Workouts.findAndCountAll({
             where: {
                 user_slug: {
-                    [Op.in]: followedUsersSlug
+                    [Op.in]: Sequelize.literal(`(
+                        SELECT followed_id
+                        FROM Relationships
+                        WHERE follower_id = '${userSlug}'
+                        AND is_deleted = false
+                    )`)
                 },
                 [Op.or]: [{ type: PostType.POST }, { type: PostType.SHARE }]
             },
@@ -1165,7 +1160,7 @@ async function viewFollowingPosts(req, res) {
                             FROM Posts_Workouts AS shareCount
                             WHERE
                                 shareCount.shared_from = Posts_Workouts.slug
-                            )`),
+                        )`),
                         'countShare'
                     ]
                 ]
@@ -1252,42 +1247,24 @@ async function viewFollowingPosts(req, res) {
     }
 }
 
-
 async function viewForYouPosts(req, res) {
     try {
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
         const userId = req.user.slug;
 
-        const loggedInUser = await User.findOne({
-            where: { slug: userId },
-            attributes: ['sporting']
-        });
-
-        if (!loggedInUser) {
-            return res.status(404).json({
-                code: 404,
-                message: "User not found",
-                data: []
-            });
-        }
-
-        const sportingValue = loggedInUser.sporting;
-
-        const usersWithSameSporting = await User.findAll({
-            where: {
-                sporting: sportingValue,
-                slug: { [Op.ne]: userId }
-            },
-            attributes: ['slug']
-        });
-
-        const userSlugs = usersWithSameSporting.map(user => user.slug);
-
         const { count, rows: posts } = await Posts_Workouts.findAndCountAll({
             where: {
                 user_slug: {
-                    [Op.in]: userSlugs
+                    [Op.in]: Sequelize.literal(`(
+                        SELECT slug
+                        FROM Users
+                        WHERE sporting = (
+                            SELECT sporting
+                            FROM Users
+                            WHERE slug = '${userId}'
+                        ) AND slug != '${userId}'
+                    )`)
                 },
                 type: PostType.POST
             },
@@ -1314,6 +1291,15 @@ async function viewForYouPosts(req, res) {
                                 AND likesAlias.is_deleted = false
                         )`),
                         'hasLiked'
+                    ],
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Posts_Workouts AS shareCount
+                            WHERE
+                                shareCount.shared_from = Posts_Workouts.slug
+                        )`),
+                        'countShare'
                     ]
                 ]
             },
@@ -1344,6 +1330,7 @@ async function viewForYouPosts(req, res) {
                 type: item.type,
                 user_slug: item.user_slug,
                 likeCount: item.dataValues.likeCount,
+                shareCount: item.dataValues.countShare,
                 hasLiked: item.dataValues.hasLiked > 0, // Convert to boolean
                 user: {
                     full_name: item.user.full_name,
@@ -1373,6 +1360,7 @@ async function viewForYouPosts(req, res) {
         });
     }
 }
+
 
 async function savePost(req, res){
     try{

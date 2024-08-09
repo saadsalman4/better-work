@@ -3,8 +3,8 @@ const {User_keys, User} = require('../connect');
 const {TokenType} = require('../utils/constants')
 
 const userAuth = async (req, res, next) => {
-  const token = req.headers.authorization;
-
+  let token = req.headers.authorization|| '';
+  token = token.replace("Bearer","").replace(" ","")
   if (!token) {
     return res.status(401).json({
         code: 401,

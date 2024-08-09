@@ -114,17 +114,8 @@ function model(sequelize) {
             as: 'roleDetails',
         });
 
-        User.belongsToMany(models.User, {
-            through: models.Relationship,
-            as: 'followers',
-            foreignKey: 'followed_id',
-        });
-    
-        User.belongsToMany(models.User, {
-            through: models.Relationship,
-            as: 'following',
-            foreignKey: 'follower_id',
-        });
+        User.hasMany(models.Relationship, { as: 'followers', foreignKey: 'followed_id' });
+        User.hasMany(models.Relationship, { as: 'followings', foreignKey: 'follower_id' });
     };
 
     return User;

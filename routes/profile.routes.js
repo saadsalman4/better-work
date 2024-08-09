@@ -1,6 +1,6 @@
 const express = require("express");
 const { userAuth } = require("../middlewares/authCheck");
-const { myPosts, myWorkouts, myShares, myFollowersCount, myFollowingCount, myProfile } = require("../controllers/profile.controller");
+const { myPosts, myWorkouts, myShares, myFollowersCount, myFollowingCount, myProfile, viewUserProfile } = require("../controllers/profile.controller");
 
 const router = express.Router();
 
@@ -12,5 +12,6 @@ router.get('/follower-count', userAuth, myFollowersCount)
 router.get('/following-count', userAuth, myFollowingCount)
 
 router.get('/my-profile', userAuth, myProfile)
+router.get('/user/:userSlug', userAuth, viewUserProfile)
 
 module.exports = router;
