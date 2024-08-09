@@ -1134,7 +1134,7 @@ async function viewFollowingPosts(req, res) {
                 user_slug: {
                     [Op.in]: followedUsersSlug
                 },
-                [Op.or]: [{type: PostType.POST}, {type: PostType.SHARE}]
+                [Op.or]: [{ type: PostType.POST }, { type: PostType.SHARE }]
             },
             attributes: {
                 include: [
@@ -1166,15 +1166,27 @@ async function viewFollowingPosts(req, res) {
                             WHERE
                                 shareCount.shared_from = Posts_Workouts.slug
                             )`),
-                            'countShare'
+                        'countShare'
                     ]
                 ]
             },
-            include: [{
-                model: User,
-                as: 'user',
-                attributes: ['full_name', 'profileImage']
-            }],
+            include: [
+                {
+                    model: User,
+                    as: 'user',
+                    attributes: ['full_name', 'profileImage']
+                },
+                {
+                    model: Posts_Workouts,
+                    as: 'originalPost',
+                    attributes: ['slug', 'title', 'media', 'price', 'type'],
+                    include: [{
+                        model: User,
+                        as: 'user',
+                        attributes: ['full_name', 'profileImage']
+                    }]
+                }
+            ],
             offset,
             limit: parseInt(limit, 10),
         });
@@ -1186,6 +1198,19 @@ async function viewFollowingPosts(req, res) {
         const postsWithUserDetails = posts.map(item => {
             const mediaUrl = item.media ? `${protocol}://${host}/${item.media.split(path.sep).join('/')}` : null;
             const profileImageUrl = item.user.profileImage ? `${protocol}://${host}/${item.user.profileImage.split(path.sep).join('/')}` : null;
+
+            const originalPostDetails = item.originalPost ? {
+                slug: item.originalPost.slug,
+                title: item.originalPost.title,
+                media: item.originalPost.media ? `${protocol}://${host}/${item.originalPost.media.split(path.sep).join('/')}` : null,
+                price: item.originalPost.price,
+                type: item.originalPost.type,
+                user: {
+                    full_name: item.originalPost.user.full_name,
+                    profileImage: item.originalPost.user.profileImage ? `${protocol}://${host}/${item.originalPost.user.profileImage.split(path.sep).join('/')}` : null,
+                }
+            } : null;
+
             return {
                 slug: item.slug,
                 title: item.title,
@@ -1201,7 +1226,8 @@ async function viewFollowingPosts(req, res) {
                 user: {
                     full_name: item.user.full_name,
                     profileImage: profileImageUrl,
-                }
+                },
+                originalPost: originalPostDetails
             };
         });
 
@@ -1225,6 +1251,7 @@ async function viewFollowingPosts(req, res) {
         });
     }
 }
+
 
 async function viewForYouPosts(req, res) {
     try {
