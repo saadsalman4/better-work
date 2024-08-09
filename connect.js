@@ -17,6 +17,7 @@ const WorkoutSession = require('./models/workout_sessions.model')(sequelize)
 const WorkoutLog = require('./models/workout_log.model')(sequelize)
 const Relationship = require('./models/relationship.model')(sequelize)
 const Likes = require('./models/likes.model')(sequelize)
+const Saves = require('./models/saves.model')(sequelize)
 
 const db = {
   sequelize,
@@ -31,7 +32,8 @@ const db = {
   WorkoutSession,
   WorkoutLog,
   Relationship,
-  Likes
+  Likes,
+  Saves
 };
 
 Object.keys(db).forEach(modelName => {

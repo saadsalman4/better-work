@@ -1,4 +1,4 @@
-const { sequelize, User, Posts_Workouts, Sections, workoutExercise, templateExercises, Relationship } = require('../connect');
+const { sequelize, User, Posts_Workouts, Sections, workoutExercise, templateExercises, Relationship, Saves } = require('../connect');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const {postSchema, workoutSchema, templateSchema} = require('../utils/inputSchemas');
@@ -1134,11 +1134,10 @@ async function viewFollowingPosts(req, res) {
                 user_slug: {
                     [Op.in]: followedUsersSlug
                 },
-                type: PostType.POST
+                [Op.or]: [{type: PostType.POST}, {type: PostType.SHARE}]
             },
             attributes: {
                 include: [
-                    'slug', 'title', 'media', 'price', 'type', 'user_slug',
                     [
                         Sequelize.literal(`(
                             SELECT COUNT(*)
@@ -1159,6 +1158,15 @@ async function viewFollowingPosts(req, res) {
                                 AND likesAlias.is_deleted = false
                         )`),
                         'hasLiked'
+                    ],
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Posts_Workouts AS shareCount
+                            WHERE
+                                shareCount.shared_from = Posts_Workouts.slug
+                            )`),
+                            'countShare'
                     ]
                 ]
             },
@@ -1187,6 +1195,9 @@ async function viewFollowingPosts(req, res) {
                 user_slug: item.user_slug,
                 likeCount: item.dataValues.likeCount,
                 hasLiked: item.dataValues.hasLiked > 0, // Convert to boolean
+                shareCount: item.dataValues.countShare,
+                shared_from: item.shared_from,
+                sharer_caption: item.sharer_caption,
                 user: {
                     full_name: item.user.full_name,
                     profileImage: profileImageUrl,
@@ -1336,8 +1347,169 @@ async function viewForYouPosts(req, res) {
     }
 }
 
+async function savePost(req, res){
+    try{
+        const {postSlug} = req.params
+        const userSlug = req.user.slug;
+
+        const savedPost = await Saves.findOne({where: {
+            user_slug: userSlug, post_slug: postSlug, is_deleted: false
+        }})
+
+        if(savedPost){
+            return res.status(400).json({
+                code: 400,
+                message: "Already saved this post",
+                data: []
+            });
+        }
+
+        const post = await Posts_Workouts.findOne({
+            where:{
+                slug: postSlug,
+                type: PostType.POST
+            }
+        })
+
+        if(!post){
+            return res.status(404).json({
+                code: 404,
+                message: "Post not found!",
+                data: []
+            })
+        }
+
+        await Saves.create({
+            user_slug: userSlug,
+            post_slug: postSlug
+        });
+
+        return res.status(200).json({
+            code: 200,
+            message: "Post saved successfully",
+            data: []
+        });
+
+
+
+    }
+    catch(e){
+        console.log(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: []
+        });
+    }
+}
+
+async function unsavePost(req, res){
+    try{
+        const userSlug = req.user.slug;
+        const { postSlug } = req.params;
+
+        const savedPost = await Saves.findOne({
+            where: { user_slug: userSlug, post_slug: postSlug, is_deleted: false }
+        });
+
+        if (!savedPost) {
+            return res.status(400).json({
+                code: 400,
+                message: "Saved post not found",
+                data: []
+            });
+        }
+
+        await savedPost.update({ is_deleted: true });
+
+        return res.status(200).json({
+            code: 200,
+            message: "Unsaved successfully",
+            data: []
+        });
+
+    }
+    catch(e){
+        console.log(e);
+        return res.status(500).json({
+            code: 500,
+            message: e.message,
+            data: []
+        });
+    }
+}
+
+async function getSavedPosts(req, res) {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+        const user_slug = req.user.slug;
+
+        const { count, rows: savedPosts } = await Saves.findAndCountAll({
+            where: {
+                user_slug,
+                is_deleted: false,
+            },
+            include: [{
+                model: Posts_Workouts,
+                as: 'post',
+                attributes: ['slug', 'title', 'media', 'price', 'type'],
+                include: [{
+                    model: User,
+                    as: 'user',
+                    attributes: ['full_name', 'profileImage']
+                }]
+            }],
+            offset,
+            limit: parseInt(limit, 10),
+        });
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+
+        // Map over the results to select only the required attributes and format URLs
+        const formattedSavedPosts = savedPosts.map(save => {
+            const mediaUrl = save.post.media ? `${protocol}://${host}/${save.post.media.split(path.sep).join('/')}` : null;
+            const profileImageUrl = save.post.user.profileImage ? `${protocol}://${host}/${save.post.user.profileImage.split(path.sep).join('/')}` : null;
+
+            return {
+                slug: save.post.slug,
+                title: save.post.title,
+                type: save.post.type,
+                media: mediaUrl,
+                price: save.post.price,
+                user: {
+                    full_name: save.post.user.full_name,
+                    profileImage: profileImageUrl,
+                }
+            };
+        });
+
+        return res.status(200).json({
+            code: 200,
+            message: 'Saved posts retrieved successfully',
+            data: formattedSavedPosts,
+            pagination: {
+                totalItems: count,
+                currentPage: parseInt(page, 10),
+                totalPages: Math.ceil(count / limit),
+                pageSize: parseInt(limit, 10),
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            code: 500,
+            message: error.message,
+        });
+    }
+}
+
+
 
 module.exports = {createPost, createWorkout, createTemplate, updatePost, updateWorkout, updateTemplate,
     viewAll, viewPosts, viewWorkouts, viewTemplates, workoutView, postView, templateView, deletePost,
-    deleteWorkout, deleteTemplate, sharePost, viewFollowingPosts, viewForYouPosts
+    deleteWorkout, deleteTemplate, sharePost, viewFollowingPosts, viewForYouPosts, savePost, unsavePost,
+    getSavedPosts
  }

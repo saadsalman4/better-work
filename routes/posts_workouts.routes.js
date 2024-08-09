@@ -6,7 +6,10 @@ const {createPost, createWorkout, createTemplate, updatePost,
     deletePost, deleteWorkout, deleteTemplate,
     sharePost,
     viewFollowingPosts,
-    viewForYouPosts} = require('../controllers/posts_workouts.controller');
+    viewForYouPosts,
+    savePost,
+    unsavePost,
+    getSavedPosts} = require('../controllers/posts_workouts.controller');
 
 const router = express.Router();
 
@@ -35,5 +38,9 @@ router.post('/share-post/:originalPostSlug', userAuth, sharePost)
 
 router.get('/following-posts', userAuth, viewFollowingPosts)
 router.get('/for-you-posts', userAuth, viewForYouPosts)
+
+router.post('/save-post/:postSlug', userAuth, savePost)
+router.delete('/unsave-post/:postSlug', userAuth, unsavePost)
+router.get('/saved-posts', userAuth, getSavedPosts)
 
 module.exports = router;
