@@ -1,4 +1,4 @@
-const { sequelize, User, Posts_Workouts, Sections, workoutExercise, templateExercises, Relationship, Saves } = require('../connect');
+const { sequelize, User, Posts_Workouts, Sections, workoutExercise, templateExercises, Relationship, Saves, Comment } = require('../connect');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const {postSchema, workoutSchema, templateSchema} = require('../utils/inputSchemas');
@@ -1180,6 +1180,18 @@ async function viewFollowingPosts(req, res) {
                         as: 'user',
                         attributes: ['full_name', 'profileImage']
                     }]
+                },
+                {
+                    model: Comment,
+                    as: 'comments',
+                    attributes: ['slug', 'comment_text', 'createdAt'],
+                    include: [{
+                        model: User,
+                        as: 'commenter', // Use the alias defined in the Comment model
+                        attributes: ['full_name', 'profileImage']
+                    }],
+                    where: { is_deleted: false },
+                    required: false // to ensure posts without comments are also included
                 }
             ],
             offset,
@@ -1206,6 +1218,16 @@ async function viewFollowingPosts(req, res) {
                 }
             } : null;
 
+            const comments = item.comments.map(comment => ({
+                slug: comment.slug,
+                comment_text: comment.comment_text,
+                createdAt: comment.createdAt,
+                commenter: {
+                    full_name: comment.commenter.full_name,
+                    profileImage: comment.commenter.profileImage ? `${protocol}://${host}/${comment.commenter.profileImage.split(path.sep).join('/')}` : null
+                }
+            }));
+
             return {
                 slug: item.slug,
                 title: item.title,
@@ -1222,7 +1244,8 @@ async function viewFollowingPosts(req, res) {
                     full_name: item.user.full_name,
                     profileImage: profileImageUrl,
                 },
-                originalPost: originalPostDetails
+                originalPost: originalPostDetails,
+                comments: comments // Include comments in the response
             };
         });
 
@@ -1303,11 +1326,25 @@ async function viewForYouPosts(req, res) {
                     ]
                 ]
             },
-            include: [{
-                model: User,
-                as: 'user',
-                attributes: ['full_name', 'profileImage']
-            }],
+            include: [
+                {
+                    model: User,
+                    as: 'user',
+                    attributes: ['full_name', 'profileImage']
+                },
+                {
+                    model: Comment,
+                    as: 'comments',
+                    attributes: ['slug', 'comment_text', 'createdAt'],
+                    include: [{
+                        model: User,
+                        as: 'commenter', // Ensure this alias matches the association in Comment model
+                        attributes: ['full_name', 'profileImage']
+                    }],
+                    where: { is_deleted: false },
+                    required: false // Ensure posts without comments are also included
+                }
+            ],
             order: [
                 [Sequelize.literal('likeCount'), 'DESC']
             ],
@@ -1322,6 +1359,17 @@ async function viewForYouPosts(req, res) {
         const postsWithUserDetails = posts.map(item => {
             const mediaUrl = item.media ? `${protocol}://${host}/${item.media.split(path.sep).join('/')}` : null;
             const profileImageUrl = item.user.profileImage ? `${protocol}://${host}/${item.user.profileImage.split(path.sep).join('/')}` : null;
+
+            const comments = item.comments.map(comment => ({
+                slug: comment.slug,
+                comment_text: comment.comment_text,
+                createdAt: comment.createdAt,
+                commenter: {
+                    full_name: comment.commenter.full_name,
+                    profileImage: comment.commenter.profileImage ? `${protocol}://${host}/${comment.commenter.profileImage.split(path.sep).join('/')}` : null
+                }
+            }));
+
             return {
                 slug: item.slug,
                 title: item.title,
@@ -1335,7 +1383,8 @@ async function viewForYouPosts(req, res) {
                 user: {
                     full_name: item.user.full_name,
                     profileImage: profileImageUrl,
-                }
+                },
+                comments: comments // Include comments in the response
             };
         });
 
@@ -1360,6 +1409,7 @@ async function viewForYouPosts(req, res) {
         });
     }
 }
+
 
 
 async function savePost(req, res){

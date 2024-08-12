@@ -83,6 +83,9 @@ function model(sequelize) {
             onUpdate: 'CASCADE',
             
         });
+
+        Posts_Workouts.hasMany(models.Comment, { as: 'comments', foreignKey: 'post_slug' }); // Define association with Comment
+
     };
 
     return Posts_Workouts;

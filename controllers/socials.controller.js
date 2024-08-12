@@ -314,7 +314,7 @@ async function addComment(req, res){
 
         // Check if the post exists
         const post = await Posts_Workouts.findOne({
-            where: { slug: postSlug }
+            where: { slug: postSlug }, type: PostType.POST
         });
 
         if (!post) {

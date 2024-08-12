@@ -46,7 +46,7 @@ function model(sequelize) {
 
     Comment.associate = function(models) {
         Comment.belongsTo(models.Posts_Workouts, { foreignKey: 'post_slug', as: 'post' });
-        Comment.belongsTo(models.User, { foreignKey: 'user_slug', as: 'user' }); // Ensure `User` matches your model name
+        Comment.belongsTo(models.User, { foreignKey: 'user_slug', as: 'commenter' }); // Ensure `User` matches your model name
     };
 
     return Comment;
