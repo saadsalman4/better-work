@@ -274,43 +274,53 @@ async function myProfile(req, res) {
 
 async function viewUserProfile(req, res) {
     try {
-        const { userSlug } = req.params; // Assuming you're passing the userSlug in the URL
-        const loggedInUserSlug = req.user.slug;
+        const userSlug = req.user.slug;
+        const { profileUserSlug } = req.params;
+
+        if(userSlug == profileUserSlug){
+            return myProfile(req, res)
+            
+        }
 
         const userProfile = await User.findOne({
-            where: { slug: userSlug },
-            attributes: ['full_name', 'profileImage', 'email'],
-            include: [
-                {
-                    model: Relationship,
-                    as: 'followers', // Alias for followers
-                    attributes: [],
-                    where: { followed_id: userSlug, is_deleted: false },
-                    required: false,
-                },
-                {
-                    model: Relationship,
-                    as: 'followings', // Alias for followings
-                    attributes: [],
-                    where: { follower_id: userSlug, is_deleted: false },
-                    required: false,
-                },
-                {
-                    model: Relationship,
-                    as: 'isFollowing', // Alias to check if logged-in user follows this user
-                    attributes: [],
-                    where: { follower_id: loggedInUserSlug, followed_id: userSlug, is_deleted: false },
-                    required: false,
-                }
-            ],
+            where: { slug: profileUserSlug },
             attributes: {
                 include: [
-                    [Sequelize.fn('COUNT', Sequelize.col('followers.slug')), 'numberOfFollowers'],
-                    [Sequelize.fn('COUNT', Sequelize.col('followings.slug')), 'numberOfFollowing'],
-                    [Sequelize.literal(`COUNT(CASE WHEN "isFollowing"."slug" IS NOT NULL THEN 1 END)`), 'isFollowing'],
+                    'full_name', 
+                    'email',
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Relationships AS followerCount
+                            WHERE 
+                                followerCount.followed_id = User.slug
+                                AND followerCount.is_deleted = false
+                        )`),
+                        'numberOfFollowers'
+                    ],
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Relationships AS followingCount
+                            WHERE 
+                                followingCount.follower_id = User.slug
+                                AND followingCount.is_deleted = false
+                        )`),
+                        'numberOfFollowing'
+                    ],
+                    [
+                        Sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM Relationships AS checkFollow
+                            WHERE 
+                                checkFollow.follower_id = '${userSlug}'
+                                AND checkFollow.followed_id = User.slug
+                                AND checkFollow.is_deleted = false
+                        )`),
+                        'hasFollowed'
+                    ],
                 ]
-            },
-            group: ['User.slug']
+            }
         });
 
         if (!userProfile) {
@@ -323,20 +333,23 @@ async function viewUserProfile(req, res) {
 
         const protocol = req.protocol;
         const host = req.get('host');
-        const profileImageUrl = userProfile.profileImage ? `${protocol}://${host}/${userProfile.profileImage.split(path.sep).join('/')}` : null;
+        const profileImageUrl = userProfile.profileImage 
+            ? `${protocol}://${host}/${userProfile.profileImage.split(path.sep).join('/')}` 
+            : null;
 
         return res.status(200).json({
             code: 200,
             message: "User profile retrieved successfully",
             data: {
                 full_name: userProfile.full_name,
-                profileImage: profileImageUrl,
                 email: userProfile.email,
-                numberOfFollowers: userProfile.dataValues.numberOfFollowers || 0,
-                numberOfFollowing: userProfile.dataValues.numberOfFollowing || 0,
-                isFollowing: userProfile.dataValues.isFollowing > 0,
+                profileImage: profileImageUrl,
+                numberOfFollowers: userProfile.dataValues.numberOfFollowers,
+                numberOfFollowing: userProfile.dataValues.numberOfFollowing,
+                hasFollowed: userProfile.dataValues.hasFollowed > 0 // Convert to boolean
             }
         });
+
     } catch (e) {
         console.log(e);
         return res.status(500).json({
@@ -346,6 +359,7 @@ async function viewUserProfile(req, res) {
         });
     }
 }
+
 
 
 module.exports = {myPosts, myWorkouts, myShares, myFollowersCount, myFollowingCount, myProfile, viewUserProfile}

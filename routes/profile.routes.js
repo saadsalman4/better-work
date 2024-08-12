@@ -12,6 +12,6 @@ router.get('/follower-count', userAuth, myFollowersCount)
 router.get('/following-count', userAuth, myFollowingCount)
 
 router.get('/my-profile', userAuth, myProfile)
-router.get('/user/:userSlug', userAuth, viewUserProfile)
+router.get('/user/:profileUserSlug', userAuth, viewUserProfile)
 
 module.exports = router;

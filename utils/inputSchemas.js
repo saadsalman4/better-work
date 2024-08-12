@@ -159,3 +159,21 @@ exports.editProfileSchema = Joi.object({
         'string.empty': 'Sport cannot be an empty string.',
     }),
 });
+
+exports.commentSchema = Joi.object({
+    postSlug: Joi.string().uuid().required().messages({
+        'string.base': 'Post identifier should be a type of text.',
+        'string.empty': 'Post identifier is required.',
+        'string.guid': 'Post identifier must be a valid UUID.',
+        'any.required': 'Post identifier is required.',
+    }),
+    commentText: Joi.string().max(500).required().messages({
+        'string.base': 'Comment should be a type of text.',
+        'string.empty': 'Comment is required.',
+        'string.max': 'Comment should not exceed 500 characters.',
+        'any.required': 'Comment is required.',
+    }),
+}).messages({
+    'object.base': 'The comment data should be an object.',
+    'any.required': 'All fields are required.',
+});
